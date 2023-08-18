@@ -1,0 +1,28 @@
+# Test your FastAPI endpoints
+
+GET http://127.0.0.1:58000/
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:58000/hello/User
+Accept: application/json
+
+###
+
+POST http://127.0.0.1:58000/feishu/verify
+Accept: application/json
+Content-Type: application/json; charset=utf-8
+
+{
+    "challenge": "ajls384kdjx98XX",
+    "token": "xxxxxx",
+    "type": "url_verification"
+}
+
+### Fershu Encrpty
+POST http://127.0.0.1:58000/feishu/verify
+Accept: application/json
+Content-Type: application/json;charset=utf-8
+
+{"encrypt":"OeuqzUt323iQYvxbFkaGnSqQqySyn4ObRalbvKzQ+zx/db39bin70BmuqmiloFoRNVewijQCdCZDgF1m0gwyHw9In3O8WNrtyDzFlscWF8SObMfvKmSZdYAB2yBRaWoBM0sRnhYjb6IQ78LGl4TQSrX+gw2KnEl2zEZdekl8atFlgCXlKzZZdFnaD4WIqQsp"}
