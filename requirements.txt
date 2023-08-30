@@ -1,0 +1,14 @@
+
+python-dotenv~=1.0.0
+fastapi~=0.101.1
+uvicorn
+
+requests
+httpx
+typer~=0.9.0
+
+lark-oapi
+
+
+Flask~=2.3.2
+pydantic~=2.2.0

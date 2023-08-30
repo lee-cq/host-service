@@ -1,10 +1,10 @@
 import json
 import time
 
-from fastapi import FastAPI, Request, Response
-
+from fastapi import FastAPI
 from feishu.api_hook import router as feishu_api_hook_router
-from feishu.decrypt import DecryptRequest
+from feishu.event import router as feishu_event_router
+
 
 app = FastAPI(
     # root_path='/api/v1',
@@ -15,17 +15,7 @@ app = FastAPI(
 )
 
 
-# @app.middleware("http")
-# async def add_process_time_header(request: Request, call_next):
-#     if request.url.path.startswith('/feishu/'):
-#         print('Create New DecryptRequest')
-#         request = DecryptRequest(request.scope, request.receive)
-#         # print(await request.json())
-#     response: Response = await call_next(request)
-#     print('response', response.status_code, )
-#     return response
-
-
+app.include_router(feishu_event_router)
 app.include_router(feishu_api_hook_router)
 
 

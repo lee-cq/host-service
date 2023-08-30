@@ -35,10 +35,10 @@ class ModelEventV1Connect(BaseModel):
 
 
 class ModelEventV1(BaseModel):
+    type: str
     ts: int
     uuid: UUID
     token: str
-    type: str
     event: ModelEventV1Connect
 
     model_config = {
