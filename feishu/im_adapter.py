@@ -1,7 +1,7 @@
 # coding: utf-8
 # IM 适配层
 
-from lark_oapi import Client, im
+from lark_oapi import Client, im, JSON
 
 
 class IMError(Exception):
@@ -47,8 +47,8 @@ class IMAdapter:
 
     def send_text_message_to_chat(self, chat_id, msg_content) -> im.v1.CreateMessageResponse:
         """发送文本消息到群"""
-
-        return self.send_message('chat_id', chat_id, 'text', '{"text": "%s"}' % str(msg_content))
+        js = {'text': msg_content}
+        return self.send_message('chat_id', chat_id, 'text', JSON.marshal(js))
 
     def reply_message(self, parent_msg_id, content, msg_type: str, uuid: str = None):
         body = im.v1.ReplyMessageRequestBody.builder() \
