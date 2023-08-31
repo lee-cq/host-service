@@ -20,7 +20,7 @@ jobs:
         tag=$(date +%s) 
         docker build . --file Dockerfile --tag host-service:"${tag}" --build-arg image_version=3.11
         docker tag host-service:"${tag}" host-service
-        docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_TOKEN }}
+        echo ${{ secrets.DOCKER_TOKEN }} | docker login -u ${{ secrets.DOCKER_USER }} --password-stdin 
         docker push host-service
         docker push host-service:"${tag}"
         
