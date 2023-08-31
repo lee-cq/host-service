@@ -4,7 +4,8 @@ ARG image_version=3.11-alpine
 
 FROM python:${image_version}
 
-RUN apt-get update --yes \
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime  \
+    && apt-get update --yes \
     && apt-get install --no-install-recommends --yes \
         iputils-ping \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
