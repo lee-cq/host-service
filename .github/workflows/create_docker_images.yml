@@ -21,7 +21,7 @@ jobs:
         # Server address of Docker registry. If not set then will default to Docker Hub
         # registry: # optional
         # Username used to log against the Docker registry
-        username: ${{ secrets.DOCKER_USER }}
+        username: leecq
         # Password or personal access token used to log against the Docker registry
         password: ${{ secrets.DOCKER_TOKEN }} 
         # Specifies whether the given registry is ECR (auto, true or false)
@@ -31,10 +31,12 @@ jobs:
     
     - name: Build the Docker image
       run: |
-        tag=$(date +%s) 
-        docker build . --file Dockerfile --tag host-service:"${tag}" --build-arg image_version=3.11
-        docker tag host-service:"${tag}" host-service
+        sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+        
+        tag=$(date +%m%d-%H%m) 
+        docker build . --file Dockerfile --tag leecq/host-service:"${tag}" --build-arg image_version=3.11
+        docker tag host-service:"${tag}" leecq/host-service
 
-        docker push host-service
-        docker push host-service:"${tag}"
+        docker push leecq/host-service
+        docker push leecq/host-service:"${tag}"
         
