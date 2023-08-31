@@ -17,7 +17,6 @@ import dotenv
 dotenv.load_dotenv()
 
 router = APIRouter(
-    prefix='/feishu_event',
     tags=['feishu', 'hook'],
 )
 

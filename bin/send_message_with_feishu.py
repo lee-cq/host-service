@@ -1,12 +1,15 @@
 #!/bin/env python3
 # coding: utf-8
 
-# noinspection PyUnresolvedReferences
-import _base as __
+import logging
 
 import typer
 
+# noinspection PyUnresolvedReferences
+import _base as __
+
 app = typer.Typer()
+logger = logging.getLogger('host-service.bin.send-message')
 
 
 @app.command()

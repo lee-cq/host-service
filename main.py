@@ -1,10 +1,7 @@
-import json
-import time
-
 from fastapi import FastAPI
 from feishu.api_hook import router as feishu_api_hook_router
 from feishu.event import router as feishu_event_router
-
+from health.routers import router as health_router
 
 app = FastAPI(
     # root_path='/api/v1',
@@ -14,9 +11,9 @@ app = FastAPI(
     version='1.0.0',
 )
 
-
-app.include_router(feishu_event_router)
-app.include_router(feishu_api_hook_router)
+app.include_router(feishu_event_router, prefix='/feishu_event', )
+app.include_router(feishu_api_hook_router, prefix='/feishu', )
+app.include_router(health_router, prefix='/health', )
 
 
 @app.get("/")
