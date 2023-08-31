@@ -33,7 +33,7 @@ def status():
 
 
 @router.get('/ping')
-def ping(host: str, timeout: int = 10, chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6"):
+async def ping(host: str, timeout: int = 10, chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6"):
     date = time.strftime('%Y-%m-%d %H:%M:%S')
     try:
         _avg, _max, _min, _mdev = await a_ping(host, timeout)
