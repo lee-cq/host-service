@@ -25,9 +25,16 @@ class DnspodCommon:
         self.lang = lang
         self.domain_grade = domain_grade
 
-    def post(self, url: str, data: dict = dict, header: dict = dict) -> dict:
+    def post(self, url: str, data: dict = None, header: dict = None) -> dict:
         """使用post方法调用接口"""
         err_code, err_message = 0, ''
+
+        if header is None:
+            header = dict()
+
+        if data is None:
+            data = dict()
+
         header.update({'User-Agent': self.UA})
 
         data.update(self.public_arguments())
