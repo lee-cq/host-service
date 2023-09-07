@@ -30,14 +30,14 @@ LOG_CONFIG = {
             'formatter': 'simple',
             'filename': 'logs/test.log',
             'mode': 'a+',
-            'level': 'DEBUG',
+            'level': 'INFO',
         }
     },
 
     'loggers': {
         'host-service': {
-            'handlers': ['file'],
-            'level': 'INFO',
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
         }
     }
 }
