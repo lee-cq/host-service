@@ -33,7 +33,7 @@ jobs:
       run: |
         sudo ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
-        tag=$(date +%m%d-%H%m)
+        tag="$(git log | head -n 1 | python3 -c 'a=input();print(a[7:13])')-$(date +%m%d-%H%m)"
         image_name=leecq/host-service
         docker build . --file Dockerfile --tag ${image_name}:"${tag}" --build-arg image_version=3.11
         docker tag ${image_name}:"${tag}" ${image_name}
