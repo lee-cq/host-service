@@ -1,4 +1,6 @@
+import json
 import logging
+from gzip import compress
 
 from httpx import AsyncClient
 from pydantic import BaseModel
@@ -25,9 +27,15 @@ class ALokiClient(LokiClientBase):
         lens_data = sum(len(_.values) for _ in data)
         data = {'streams': [i.model_dump() for i in data if isinstance(i, BaseModel)]}
         url = '/loki/api/v1/push'
-        resp = await self.client.post(url, json=data, )
+        headers = {
+            "Content-Type": "application/json",
+            "Content-Encoding": "gzip"
+        }
+        data = compress(json.dumps(data).encode(), 9)  # 压缩数据
+
+        resp = await self.client.post(url, content=data, headers=headers)
         if resp.status_code == 204:
-            logger.debug('Pushed Success')
+            logger.debug('Pushed Success: %d, data size: %d', lens_data, len(data))
             return lens_data
         logger.warning('Loki push Error, code: %d.', resp.status_code)
         logger.debug("loki push Error, code %d, Msg: %s", resp.status_code, resp.text)
