@@ -106,6 +106,9 @@ class AClash:
                 await self._ws(url, transform_callback, **kwargs)
             except WebSocketNetworkError:
                 logger.warning('WebSocketNetworkError: This Connection lasts %.2f seconds', time.time() - start)
+            except Exception as _e:
+                logger.warning("Error: %s, Try again in 5 seconds ...", _e, exc_info=True)
+                await asyncio.sleep(5)
 
     async def ws_traffic(self):
         """实时流量"""
