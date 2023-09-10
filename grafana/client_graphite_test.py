@@ -1,16 +1,15 @@
 import os
 import time
 
-import pytest
 from dotenv import load_dotenv
 
-from grafana.push import Grafana
+from .client_graphite import GraphiteClient
 
 load_dotenv()
 
-URL = os.getenv('GRAFANA__URL')
-USER_ID = os.getenv('GRAFANA__USER_ID')
-API_KEY = os.getenv('GRAFANA__API_KEY')
+URL = os.getenv("GRAFANA__URL")
+USER_ID = os.getenv("GRAFANA__USER_ID")
+API_KEY = os.getenv("GRAFANA__API_KEY")
 
 
 def test_grafana_post():
@@ -19,11 +18,12 @@ def test_grafana_post():
         "tags": ["source=python", "logs=host-service.grafana"],
         "interval": 1,
         "value": 12.345,
-        "time": int(time.time() * 1000)
+        "time": int(time.time() * 1000),
     }
-    _g = Grafana(URL, USER_ID, API_KEY)
+    _g = GraphiteClient(URL, USER_ID, API_KEY)
     resp = _g.client.post(
-        URL, json=[data],
+        URL,
+        json=[data],
     )
     assert resp.status_code == 200, resp.text
 

@@ -37,7 +37,7 @@ class AQueue(_AQueue):
         return [self.get() for _ in range(lens)]
 
 
-class GrafanaBase(metaclass=abc.ABCMeta):
+class GraphiteBase(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def push(self, content: dict) -> None:
@@ -48,7 +48,7 @@ class GrafanaBase(metaclass=abc.ABCMeta):
         """向队列中Push多条数据"""
 
 
-class AGrafana(GrafanaBase):
+class AGraphiteClient(GraphiteBase):
 
     def __init__(self, url, user_id, api_key):
         self.client = AsyncClient(
@@ -90,7 +90,7 @@ class AGrafana(GrafanaBase):
                 await self.pushes(a)
 
 
-class Grafana(GrafanaBase):
+class GraphiteClient(GraphiteBase):
 
     def __init__(self, url, user_id, api_key):
         self.url = url

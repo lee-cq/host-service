@@ -6,7 +6,7 @@ import time
 
 from dotenv import load_dotenv
 
-from push import Grafana
+from client_graphite import Grafana
 
 load_dotenv()
 
