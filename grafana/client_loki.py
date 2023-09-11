@@ -60,7 +60,7 @@ class ALokiClient(LokiClientBase):
         data = {"streams": [i.model_dump() for i in data if isinstance(i, BaseModel)]}
         url = "/loki/api/v1/push"
         headers = {"Content-Type": "application/json", "Content-Encoding": "gzip"}
-        data = compress(json.dumps(data).encode(), 9)  # 压缩数据
+        data = compress(json.dumps(data, ensure_ascii=False).encode(), 9)  # 压缩数据
         resp = await self.client.post(url, content=data, headers=headers)
         if resp.status_code == 204:
             logger.debug("Pushed Success: %d, data size: %d", lens_data, len(data))
