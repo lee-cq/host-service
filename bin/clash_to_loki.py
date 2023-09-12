@@ -4,7 +4,6 @@ import asyncio
 import json
 import os
 
-# noinspection PyUnresolvedReferences
 import _base
 import typer
 import pydantic_settings
@@ -12,7 +11,12 @@ import pydantic_settings
 from grafana.client_loki import ALokiClient
 from grafana.clash import AClash
 
-
+_base.logging_configurator(
+    name="clash_to_loki",
+    console_print=True,
+    console_level="INFO" if _base.IS_SYSTEMD else "DEBUG",
+    file_level="DEBUG" if _base.IS_SYSTEMD else "INFO",
+)
 app = typer.Typer()
 
 
