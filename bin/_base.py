@@ -11,35 +11,35 @@ sys.path.insert(0, str(PACKAGE_PATH))
 os.chdir(PACKAGE_PATH)
 
 LOG_CONFIG = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        "simple": {
-            "formatter": "%(asctime)s %(name)s %(levelname)s - %(message)s"
-        }
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {"format": "%(asctime)s %(name)s %(levelname)s - %(message)s"}
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-            'level': 'DEBUG',
-
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+            "level": "DEBUG",
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'formatter': 'simple',
-            'filename': 'logs/test.log',
-            'mode': 'a+',
-            'level': 'INFO',
+        "file": {
+            "class": "logging.FileHandler",
+            "formatter": "simple",
+            "filename": "logs/test.log",
+            "mode": "a+",
+            "level": "INFO",
+        },
+    },
+    "loggers": {
+        "host-service": {
+            "handlers": ["console"],
+            "level": "DEBUG",
         }
     },
-
-    'loggers': {
-        'host-service': {
-            'handlers': ['file', 'console'],
-            'level': 'DEBUG',
-        }
-    }
+    "root": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
 }
 
 logging.config.dictConfig(LOG_CONFIG)
