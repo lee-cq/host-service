@@ -60,18 +60,13 @@ def create_service_file(name, service):
     user_service_dir.mkdir(parents=True, exist_ok=True)
 
     service_file = user_service_dir.joinpath(f"{name}.service")
+    if service_file.exists():
+        logger.info(f"Service file already exists: {service_file}")
+        if input(f"{service_file}已经存在, 是否覆盖? [y/n]: ").lower() != "y":
+            logger.info("已取消")
+            return
     service_file.write_text(service, encoding="utf8")
     logger.info(f"Created service file: {service_file}")
-
-
-def success_logs(name):
-    if name.endswith(".py"):
-        name = name[:-3]
-
-    logger.info("服务创建成功, 请执行以下命令:\n")
-    logger.info(f"启动服务: systemctl --user start {name}")
-    logger.info(f"查看服务状态: systemctl --user status {name}")
-    logger.info(f"停止服务: systemctl --user stop {name}")
 
 
 def create_service(name, *args, **kwargs):
@@ -80,13 +75,19 @@ def create_service(name, *args, **kwargs):
 
     exec_start = join_exec_start(name, *args, **kwargs)
     logger.info(f"exec_start: {exec_start}")
+    service = join_service(WORKDIR.joinpath("bin", name), exec_start)
+    logger.debug(f"service String: >>>\n%s\n<<<", service)
+    if name.endswith(".py"):
+        name = name[:-3]
 
-    service = join_service(name, exec_start)
+    name = name.replace("_", "-")
     create_service_file(name, service)
     os.system("systemctl --user daemon-reload")
 
-    success_logs(name)
-    return
+    logger.info("服务创建成功, 请执行以下命令:\n")
+    logger.info(f"启动服务: systemctl --user start {name}")
+    logger.info(f"查看服务状态: systemctl --user status {name}")
+    logger.info(f"停止服务: systemctl --user stop {name}")
 
 
 @app.command()
