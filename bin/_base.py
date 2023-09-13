@@ -70,7 +70,7 @@ def logging_configurator(
         "loggers": {
             "host-service": {
                 "handlers": handlers,
-                "level": "INFO",
+                "level": "DEBUG",
             }
         },
         "root": {

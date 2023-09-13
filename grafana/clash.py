@@ -171,7 +171,9 @@ class AClash:
 
         return [
             Stream(
-                stream={"type": k, "reportNode": HOSTNAME, "app": "python-clash"},
+                stream={
+                    "type": k,
+                },
                 values=v,
             )
             for k, v in streams.items()
@@ -193,11 +195,14 @@ class AClash:
                 logger.error("Input Task all Down.")
                 return
 
-    async def run(self, loki_client: ALokiClient):
+    async def run(self):
         await self.ws_traffic()
         await self.ws_profile_tracing()
         await self.ws_logs()
         await self.ws_connections()
+
+    async def run_with_loki(self, loki_client: ALokiClient):
+        await self.run()
         await self.push(loki_client)
 
 

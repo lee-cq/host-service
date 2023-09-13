@@ -45,18 +45,24 @@ class LokiPushBase(metaclass=abc.ABCMeta):
 
 
 class ALokiClient(LokiClientBase):
-    def __init__(self, host, user_id, api_key, verify=True, **kwargs):
+    def __init__(
+        self, host, user_id, api_key, verify=True, labels: dict = None, **kwargs
+    ):
+        self._labels = dict()
         self.client = AsyncClient(
             base_url=f"https://{host}",
             auth=(user_id, api_key),
-            # headers={'Authorization': f'Bearer {user_id}:{api_key}'},
             verify=verify,
             **kwargs,
         )
+        if labels:
+            self._labels.update(labels)
 
     async def push(self, data: list[Stream | dict]) -> int:
         """Push消息, 返回成功推送的消息数量"""
         lens_data = sum(len(_.values) for _ in data)
+        if self._labels:
+            [s.stream.update(self._labels) for s in data]
         data = {"streams": [i.model_dump() for i in data if isinstance(i, BaseModel)]}
         url = "/loki/api/v1/push"
         headers = {"Content-Type": "application/json", "Content-Encoding": "gzip"}

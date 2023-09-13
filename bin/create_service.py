@@ -47,6 +47,10 @@ def join_service(name, exec_start):
         f"\nExecStart={exec_start}"
         f"\nRestart=always"
         f"\nRestartSec=5s"
+        f"\n"
+        f"\n[Install]"
+        f"\nWantedBy=multi-user.target"
+        f"\n"
     )
 
 

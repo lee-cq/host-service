@@ -3,13 +3,26 @@
 
 对指定的地址执行Ping测试
 """
+import locale
+import logging
 import os
 import re
 import subprocess
-
 import asyncio
+import sys
+from typing import AsyncIterable
 
-__all__ = ['ping', 'a_ping']
+__all__ = ["ping", "a_ping", "a_ping_ttl"]
+logger = logging.getLogger("host-service.ping")
+
+RE_PING_REST = {
+    "win32": r"最短 = (.*?)ms，最长 = (.*?)ms，平均 = (.*?)ms",
+    "linux": r"rtt min/avg/max/mdev = (.*?)/(.*?)/(.*?)/(.*?) ms",
+}
+RE_PING_TTL = {
+    "win32": r"来自 .*? 的回复: 字节=\d+ 时间=(\d+)ms TTL=\d+",
+    "linux": r"\d+ bytes from .*?: icmp_seq=\d+ ttl=\d+ time=(.*?) ms",
+}
 
 
 def popen(args: list):
@@ -19,32 +32,7 @@ def popen(args: list):
         stderr=subprocess.PIPE,
     )
     sp.check_returncode()
-    return sp.stdout
-
-
-def ping_linux(host, timeout=60) -> tuple[float, float, float, float]:
-    """
-
-    :param host:
-    :param timeout:
-    :return: 平均值，最大值，最小值，抖动
-    """
-
-    stdout = popen(["ping", "-w", str(timeout), host]).decode('utf8')
-    _min, _avg, _max, _mdev = re.findall(r'rtt min/avg/max/mdev = (.*?)/(.*?)/(.*?)/(.*?) ms', stdout)[0]
-    return float(_avg), float(_max), float(_min), float(_mdev)
-
-
-def ping_windows(host, timeout=60) -> tuple[float, float, float, float]:
-    """
-
-    :param host:
-    :param timeout:
-    :return: 平均值，最大值，最小值, 抖动
-    """
-    stdout = popen(["ping", '-w', '1000', '-n', str(timeout), host]).decode('gbk')
-    _min, _max, _avg = re.findall(r'最短 = (.*?)ms，最长 = (.*?)ms，平均 = (.*?)ms', stdout)[0]
-    return float(_avg), float(_max), float(_min), float(_max) - float(_min)
+    return sp.stdout.decode(locale.getencoding())
 
 
 def ping(host, timeout=60) -> tuple[float, float, float, float]:
@@ -54,7 +42,17 @@ def ping(host, timeout=60) -> tuple[float, float, float, float]:
     :param timeout:
     :return: 平均值，最大值，最小值, 抖动
     """
-    return ping_windows(host, timeout) if os.name == 'nt' else ping_linux(host, timeout)
+    cmd = {
+        "win32": ["ping", "-w", "1000", "-n", str(timeout), host],
+        "linux": ["ping", "-w", str(timeout), host],
+    }
+    stdout = popen(cmd[sys.platform])
+    if os.name == "nt":
+        _min, _max, _avg = re.findall(RE_PING_REST[sys.platform], stdout)[0]
+        return float(_avg), float(_max), float(_min), float(_max) - float(_min)
+    else:
+        _min, _avg, _max, _mdev = re.findall(RE_PING_REST[sys.platform], stdout)[0]
+        return float(_avg), float(_max), float(_min), float(_mdev)
 
 
 async def a_popen(cmd: str):
@@ -64,7 +62,7 @@ async def a_popen(cmd: str):
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await proc.communicate()
-    return stdout
+    return stdout.decode(locale.getencoding())
 
 
 async def a_ping_linux(host, timeout=60) -> tuple[float, float, float, float]:
@@ -74,10 +72,6 @@ async def a_ping_linux(host, timeout=60) -> tuple[float, float, float, float]:
     :param timeout:
     :return: 平均值，最大值，最小值，抖动
     """
-    stdout = await a_popen(f'ping -w {timeout} {host}')
-    stdout = stdout.decode('utf8')
-    _min, _avg, _max, _mdev = re.findall(r'rtt min/avg/max/mdev = (.*?)/(.*?)/(.*?)/(.*?) ms', stdout)[0]
-    return float(_avg), float(_max), float(_min), float(_mdev)
 
 
 async def a_ping_windows(host, timeout=60) -> tuple[float, float, float, float]:
@@ -88,26 +82,58 @@ async def a_ping_windows(host, timeout=60) -> tuple[float, float, float, float]:
     :return: 平均值，最大值，最小值, 抖动
     """
 
-    cmd = f'ping -w 1000 -n {timeout} {host}'
-    stdout = await a_popen(cmd)
-    stdout = stdout.decode('gbk')
-    _min, _max, _avg = re.findall(r'最短 = (.*?)ms，最长 = (.*?)ms，平均 = (.*?)ms', stdout)[0]
-    return float(_avg), float(_max), float(_min), float(_max) - float(_min)
-
 
 async def a_ping(host, timeout=60) -> tuple[float, float, float, float]:
-    return await (a_ping_windows(host, timeout) if os.name == 'nt' else a_ping_linux(host, timeout))
+    if os.name == "nt":
+        cmd = f"ping -w 1000 -n {timeout} {host}"
+        stdout = await a_popen(cmd)
+        _min, _max, _avg = re.findall(RE_PING_REST[sys.platform], stdout)[0]
+        return float(_avg), float(_max), float(_min), float(_max) - float(_min)
+    else:
+        stdout = await a_popen(f"ping -w {timeout} {host}")
+        _min, _avg, _max, _mdev = re.findall(RE_PING_REST[sys.platform], stdout)[0]
+        return float(_avg), float(_max), float(_min), float(_mdev)
+
+
+async def a_ping_ttl(host, timeout=5) -> AsyncIterable[float]:
+    """
+
+    :param host:
+    :param timeout: 单次超时时间
+    :return:
+    """
+
+    proc = await asyncio.create_subprocess_shell(
+        f"ping -t {host} -w {timeout}",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    while True:
+        try:
+            line = (await proc.stdout.readline()).decode(locale.getencoding())
+            _re = re.findall(RE_PING_TTL[sys.platform], line)
+            for r in _re:
+                yield r
+        except Exception as _e:
+            logger.warning("has a Exception in the loop: %s", _e, exc_info=_e)
+            proc.kill()
 
 
 def test_ping():
-    a = ping('10.1.1.1', timeout=4)
+    a = ping("localhost", timeout=4)
     print(a)
 
 
 def test_a_ping():
     async def main():
-        print(await a_ping('qq.com', timeout=1))
+        print(await a_ping("qq.com", timeout=1))
 
-    asyncio.run(
-        main()
-    )
+    asyncio.run(main())
+
+
+def test_a_ping_ttl():
+    async def main():
+        async for i in a_ping_ttl("qq.com", timeout=1):
+            print(i)
+
+    asyncio.run(main())

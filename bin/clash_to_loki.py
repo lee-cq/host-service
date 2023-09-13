@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import socket
 
 import _base
 import typer
@@ -58,9 +59,16 @@ def main(
 
     s = Settings()
     loki_client = ALokiClient(
-        host=s.loki_host, user_id=s.loki_user_id, api_key=s.loki_api_key, verify=False
+        host=s.loki_host,
+        user_id=s.loki_user_id,
+        api_key=s.loki_api_key,
+        verify=False,
+        labels={"reportNode": socket.gethostname(), "app": "python-clash"},
     )
-    asyncio.run(AClash(host=s.clash_host, token=s.clash_token).run(loki_client))
+
+    asyncio.run(
+        AClash(host=s.clash_host, token=s.clash_token).run_with_loki(loki_client)
+    )
 
 
 if __name__ == "__main__":
