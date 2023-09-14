@@ -6,7 +6,7 @@ import asyncio
 from queue import Queue
 from collections import defaultdict
 
-from httpx import Client, AsyncClient
+from httpx import Client, AsyncClient, ConnectError
 from httpx_ws import (
     connect_ws,
     aconnect_ws,
@@ -113,6 +113,13 @@ class AClash:
                     "WebSocketUpgradeError: %s, Will be exit for the %s ...", _e, url
                 )
                 return
+            except ConnectError as _e:
+                logger.error(
+                    "ConnectError: [%s]%s, ",
+                    self.host + url,
+                    _e,
+                )
+                await asyncio.sleep(5)
             except Exception as _e:
                 logger.warning(
                     "Connect to %s%s, Error: %s, Try again in 5 seconds ...",
