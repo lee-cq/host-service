@@ -13,9 +13,14 @@ fi
 if [ ! -d venv ];then
   echo "创建虚拟环境 ..."
   $PYTHON -m venv venv
+  rm -f .requirements-installed
 fi
 
 source venv/bin/activate
+
+which python3
+python3 -V
+
 
 if [ ! -f .requirements-installed ];then
   if [ "$(pip config get global.index-url)" == "" ]; then
