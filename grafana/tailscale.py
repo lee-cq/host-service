@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@File Name  : tailsacle.py
+@File Name  : tailscale.py
 @Author     : LeeCQ
 @Date-Time  : 2023/9/12 19:40
 """
 import asyncio
 import datetime
 import json
-import locale
 import logging
 import subprocess
 import time
-from collections import defaultdict
 from typing import AsyncIterable
 
 from httpx import AsyncClient, BasicAuth
@@ -20,6 +18,7 @@ from pydantic import BaseModel, computed_field
 
 from grafana.client_loki import Stream, ALokiClient
 from health.ping import a_ping_ttl
+from tools import getencoding
 
 logger = logging.getLogger("host-service.tailscale.connect_status")
 
@@ -31,7 +30,7 @@ class NotInstallError(Exception):
 class Device(BaseModel):
     """https://github.com/tailscale/tailscale/blob/main/api.md#attributes"""
 
-    id: str  # 设备的旧标识符, 可以在{deviceid}的任何地方提供此值, 请注意，尽管“ ID”仍被接受，但“ Nodeid”是首选。
+    id: str  # 设备的旧标识符, 可以在{deviceid}的任何地方提供此值, 请注意，尽管“ ID”仍被接受，但“ NodeId”是首选。
     nodeId: str  # 设备的新标识符, 可以在{deviceid}的任何地方提供此值.
     user: str  # 设备的所有者的用户名.
     updateAvailable: bool  # updateAvailable (boolean)如果Tailscale客户端版本升级可用，则为true。对于外部设备，此值为空。
@@ -115,7 +114,7 @@ class Tailscale:
                 stdout=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
-            std_json = json.loads(stdout.decode(locale.getencoding()))
+            std_json = json.loads(stdout.decode(getencoding()))
             std_json["type"] = "tailscale_netcheck"
             await self.queue.put((time.time_ns(),))
         except Exception as _e:
@@ -147,7 +146,7 @@ class Tailscale:
                     asyncio.create_task(self.ping(node.ipv4), name=name)
             await asyncio.sleep(60)
 
-    async def to_loki(self, timeout=-1) -> AsyncIterable[Stream]:
+    async def to_loki(self) -> AsyncIterable[Stream]:
         """转换为loki格式"""
         while True:
             time_ns, data = await self.queue.get()

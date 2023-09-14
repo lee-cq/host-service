@@ -3,7 +3,6 @@
 
 对指定的地址执行Ping测试
 """
-import locale
 import logging
 import os
 import re
@@ -13,6 +12,9 @@ import sys
 from typing import AsyncIterable
 
 __all__ = ["ping", "a_ping", "a_ping_ttl"]
+
+from tools import getencoding
+
 logger = logging.getLogger("host-service.ping")
 
 RE_PING_REST = {
@@ -32,7 +34,7 @@ def popen(args: list):
         stderr=subprocess.PIPE,
     )
     sp.check_returncode()
-    return sp.stdout.decode(locale.getencoding())
+    return sp.stdout.decode(getencoding())
 
 
 def ping(host, timeout=60) -> tuple[float, float, float, float]:
@@ -62,25 +64,7 @@ async def a_popen(cmd: str):
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await proc.communicate()
-    return stdout.decode(locale.getencoding())
-
-
-async def a_ping_linux(host, timeout=60) -> tuple[float, float, float, float]:
-    """
-
-    :param host:
-    :param timeout:
-    :return: 平均值，最大值，最小值，抖动
-    """
-
-
-async def a_ping_windows(host, timeout=60) -> tuple[float, float, float, float]:
-    """
-
-    :param host:
-    :param timeout:
-    :return: 平均值，最大值，最小值, 抖动
-    """
+    return stdout.decode(getencoding())
 
 
 async def a_ping(host, timeout=60) -> tuple[float, float, float, float]:
@@ -110,7 +94,7 @@ async def a_ping_ttl(host, timeout=5) -> AsyncIterable[float]:
     )
     while True:
         try:
-            line = (await proc.stdout.readline()).decode(locale.getencoding())
+            line = (await proc.stdout.readline()).decode(getencoding())
             _re = re.findall(RE_PING_TTL[sys.platform], line)
             for r in _re:
                 yield r

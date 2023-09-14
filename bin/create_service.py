@@ -73,7 +73,7 @@ def create_service_file(name, service):
     logger.info(f"Created service file: {service_file}")
 
 
-def create_service(name, *args, **kwargs):
+def _create_service(name, *args, **kwargs):
     """"""
     logger.info(f"当前工作目录: {WORKDIR}")
 
@@ -90,8 +90,19 @@ def create_service(name, *args, **kwargs):
 
     logger.info("服务创建成功, 请执行以下命令:\n")
     logger.info(f"启动服务: systemctl --user start {name}")
+    logger.info(f"设置开机自启: systemctl --user enable {name}")
     logger.info(f"查看服务状态: systemctl --user status {name}")
     logger.info(f"停止服务: systemctl --user stop {name}")
+
+
+@app.command()
+def send_ip_to_feishu(
+    chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6",
+):
+    """"""
+    name = "send_ip_to_feishu.py"
+
+    return _create_service(name, chat_id=chat_id)
 
 
 @app.command()
@@ -103,7 +114,7 @@ def ping_info(
     """"""
     name = "ping_info.py"
 
-    return create_service(name, host, timeout, chat_id)
+    return _create_service(name, host, timeout, chat_id)
 
 
 @app.command()
@@ -121,7 +132,7 @@ def clash_to_loki(
     if not (clash_host and clash_token and loki_host and loki_user_id and loki_api_key):
         raise KeyError("缺少参数, 请使用 --help 查看帮助")
 
-    return create_service(
+    return _create_service(
         name,
         clash_host=clash_host,
         clash_token=clash_token,

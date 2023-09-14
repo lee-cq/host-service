@@ -18,7 +18,7 @@ import _base
 import typer
 
 from grafana.client_loki import ALokiClient
-from grafana.tailsacle import Tailscale
+from grafana.tailscale import Tailscale
 
 app = typer.Typer()
 
