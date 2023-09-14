@@ -45,7 +45,7 @@ def join_service(name, exec_start):
         f"\nType=simple"
         f"\nWorkingDirectory={WORKDIR}"
         f"\nExecStart={exec_start}"
-        f"\nRestart=always"
+        f"\nRestart=on-failure"
         f"\nRestartSec=5s"
         f"\n"
         f"\n[Install]"

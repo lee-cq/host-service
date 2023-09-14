@@ -11,6 +11,7 @@ import logging
 import re
 import socket
 import subprocess
+import time
 
 import typer
 
@@ -38,12 +39,29 @@ def get_ips() -> str:
     )
 
 
+def wait_network(host="feishu.cn"):
+    """等待网络连接"""
+    while True:
+        try:
+            proc = subprocess.run(["ping", "-c", "1", "-w", "1", host])
+            if proc.returncode == 0:
+                return
+        except:
+            logger.warning("Can not connect to %s", host)
+            time.sleep(1)
+            pass
+
+
 @app.command()
 def send_message(chat_id="oc_935401cad663f0bf845df98b3abd0cf6"):
+    start = time.time()
+    wait_network()
+    wait_time = int(time.time() - start)
+
     from feishu.im_adapter import IMAdapter
     from feishu.client import client
 
-    msg_content = f"设备 {HOSTNAME} 新的IP地址：\n {get_ips()}"
+    msg_content = f"设备 {HOSTNAME} 新的IP地址：\n {get_ips()}\nwait time: {wait_time}"
 
     im = IMAdapter(client)
     resp = im.send_text_message_to_chat(chat_id, msg_content)

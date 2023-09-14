@@ -82,6 +82,6 @@ def logging_configurator(
 
 
 if __name__ == "__main__":
-    logging.config.dictConfig(create_config())
+    logging_configurator()
     logger = logging.getLogger("host-service")
     print(logger.handlers)
