@@ -5,4 +5,4 @@
 @Author     : LeeCQ
 @Date-Time  : 2023/9/12 22:31
 """
-from getencoding import getencoding
+from .getencoding import getencoding
