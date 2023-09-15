@@ -40,10 +40,11 @@ class InputClash(InputBase, AClash):
         await self.run()
         logger.info("AClash加载成功, 准备向queue推送数据 ...")
         while True:
+            await asyncio.sleep(1)
             for s in await self.create_streams():
                 s: Stream
                 await queue.put(s)  # 目前直接写入的Stream对象
-                logger.debug("AClash -> %s : %s", self.host, s)
+                logger.debug("AClash %s -> Handler : %s", self.host, s)
 
 
 class InputPing(InputBase):
@@ -68,7 +69,7 @@ class OutputLoki(OutputBase, ALokiClient):
     __output_type__ = "loki"
 
     def __init__(
-            self, host, user_id, api_key, verify=True, labels: dict = None, **kwargs
+        self, host, user_id, api_key, verify=True, labels: dict = None, **kwargs
     ):
         OutputBase.__init__(self)
         ALokiClient.__init__(
@@ -81,6 +82,7 @@ class OutputLoki(OutputBase, ALokiClient):
         return [await self.queue.get() for _ in range(lens)]
 
     async def to_output(self):
+        logger.info("开始向Loki推送数据 ...")
         while True:
             await asyncio.sleep(5)
             await self.push(await self.get_all())
@@ -125,16 +127,23 @@ class Handler:
         """启动"""
         for i in self.inputs:
             i: InputBase
-            asyncio.create_task(i.to_handle(self.queue))
+            asyncio.create_task(
+                i.to_handle(self.queue),
+                name=f"input_{i.__input_type__}_{i.__hash__()}",
+            )
             logger.info(f"创建输入 task %s", i.__input_type__)
 
         for o in self.outputs:
             o: OutputBase
-            asyncio.create_task(o.to_output())
+            asyncio.create_task(
+                o.to_output(),
+                name=f"output_{o.__output_type__}_{o.__hash__()}",
+            )
             logger.info(f"创建输入 task %s", o.__output_type__)
 
         asyncio.create_task(self.push_to_output())
         logger.info("创建数据分发task成功 。")
 
         while True:
+            logger.debug("当前所有的task: %s", self.task_names)
             await asyncio.sleep(10)

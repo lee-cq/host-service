@@ -99,6 +99,7 @@ class AClash:
                 logger.debug("added %s: %s", data["type"], data)
 
     async def _try_ws(self, url, transform_callback, **kwargs):
+        logger.info("创建一个WebSocket守护携程任务: %s%s", self.host, url)
         while True:
             start = time.time()
             try:
@@ -169,6 +170,8 @@ class AClash:
         return asyncio.create_task(self._try_ws("/connections", transform_connections))
 
     async def create_streams(self) -> list[Stream]:
+        if self.queue.empty():
+            return []
         streams = defaultdict(list)
         for _ in range(self.queue.qsize()):
             data = await self.queue.get()
@@ -207,6 +210,7 @@ class AClash:
         await self.ws_profile_tracing()
         await self.ws_logs()
         await self.ws_connections()
+        logger.info("Started all ws ...")
 
     async def run_with_loki(self, loki_client: ALokiClient):
         await self.run()

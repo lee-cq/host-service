@@ -1,5 +1,7 @@
 #!/bin/env bash
 
+set -e
+
 cd "$(dirname "$0")" || exit
 
 # =================  环境初始化 ==========================
@@ -9,6 +11,8 @@ if [ "${PYTHON}x" == "x" ];then
   echo "目前需要安装python3.11或者如果不在PATH中，使用 PYTHON_EXE 环境变量指定. " >&2
   exit 1
 fi
+
+echo "Base python: ${PYTHON}"
 
 if [ ! -d venv ];then
   echo "创建虚拟环境 ..."
@@ -29,7 +33,7 @@ if [ "${md5_saved}" != "${md5_file}" ];then
     echo "未配置镜像源，设置为： https://pypi.tuna.tsinghua.edu.cn/simple"
     pip config set global.index-url "https://pypi.tuna.tsinghua.edu.cn/simple"
   fi
-  pip install -r requirements.txt
+  pip install -r requirements.txt && \
   echo "${md5_file}" > .requirements-installed
 fi
 
