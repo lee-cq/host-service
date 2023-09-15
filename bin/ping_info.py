@@ -23,7 +23,13 @@ _base.logging_configurator(
 
 
 @app.command()
-def main(host, timeout=60, chat_id="oc_935401cad663f0bf845df98b3abd0cf6"):
+def main(
+    host,
+    timeout: int = 60,
+    hook_id: str = None,
+    keyword: str = None,
+    secret: str = None,
+):
     """"""
     date = time.strftime("%Y-%m-%d %H:%M:%S")
     try:
@@ -40,16 +46,11 @@ def main(host, timeout=60, chat_id="oc_935401cad663f0bf845df98b3abd0cf6"):
 
     logger.info(message)
 
-    from feishu.im_adapter import IMAdapter
-    from feishu.client import client
+    from feishu.send_to_hook import HookBot
 
-    im = IMAdapter(client)
-    resp = im.send_text_message_to_chat(chat_id, str(message))
-
-    if not resp.success():
-        logger.error(resp.raw.content)
-    else:
-        logger.info(resp.raw.content)
+    im = HookBot(hook_id, keyword=keyword, secret=secret)
+    resp = im.send_text(message)
+    logger.info(resp)
 
 
 if __name__ == "__main__":

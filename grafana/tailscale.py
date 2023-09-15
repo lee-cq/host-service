@@ -114,9 +114,9 @@ class Tailscale:
                 stdout=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
-            std_json = json.loads(stdout.decode(getencoding()))
-            std_json["type"] = "tailscale_netcheck"
-            await self.queue.put((time.time_ns(),))
+            netstat = json.loads(stdout.decode(getencoding()))
+            netstat["type"] = "tailscale_netcheck"
+            await self.queue.put((time.time_ns(), netstat))
         except Exception as _e:
             logger.error("网络检查失败: %s, 5秒后重试", _e, exc_info=True)
         await asyncio.sleep(5)
@@ -153,14 +153,16 @@ class Tailscale:
             if self.queue.empty():
                 await asyncio.sleep(1)
                 yield None
-            yield Stream(
-                stream={
-                    "type": data["type"],
-                    "source": self.ip_hostname.get(data["source"]),
-                    "target": self.ip_hostname.get(data["target"]),
-                },
-                values=[(str(time_ns), str(data["ttl"]))],
+            stream = dict(
+                type=data["type"],
+                source=self.self_ip,
             )
+            if "target" in data:
+                stream.update(target=self.ip_hostname.get(data["target"]))
+
+            value = json.dumps(data["ttl"]) if "ttl" in data else json.dumps(data)
+
+            yield Stream(stream=stream, values=[(str(time_ns), value)])
 
     def run(self):
         asyncio.create_task(

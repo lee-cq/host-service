@@ -8,8 +8,8 @@ from feishu.model import ModelEncrypt, ModelVerify
 from feishu.decrypt import DecryptRoute
 
 router = APIRouter(
-    prefix='/feishu',
-    tags=['feishu', 'hook'],
+    prefix="/feishu",
+    tags=["feishu", "hook"],
 )
 
 router.route_class = DecryptRoute
@@ -22,7 +22,4 @@ async def test():
 
 @router.post("/verify")
 async def verify(ver: ModelVerify):
-    return {
-        "challenge": ver.challenge
-    }
-
+    return {"challenge": ver.challenge}

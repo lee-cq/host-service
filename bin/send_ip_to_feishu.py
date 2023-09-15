@@ -53,18 +53,21 @@ def wait_network(host="feishu.cn"):
 
 
 @app.command()
-def send_message(chat_id="oc_935401cad663f0bf845df98b3abd0cf6"):
+def send_message(
+    hook_id: str = "b0f0c3f0-9b0c-4b0c-9b0c-4b0c9b0c4b0c",
+    keyword: str = None,
+    secret: str = None,
+):
     start = time.time()
     wait_network()
     wait_time = int(time.time() - start)
 
-    from feishu.im_adapter import IMAdapter
-    from feishu.client import client
+    from feishu.send_to_hook import HookBot
 
     msg_content = f"设备 {HOSTNAME} 新的IP地址：\n {get_ips()}\nwait time: {wait_time}"
 
-    im = IMAdapter(client)
-    resp = im.send_text_message_to_chat(chat_id, msg_content)
+    im = HookBot(hook_id, keyword=keyword, secret=secret)
+    resp = im.send_text(msg_content)
     logger.info(resp)
 
 
