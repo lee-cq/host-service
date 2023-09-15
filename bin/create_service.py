@@ -97,12 +97,14 @@ def _create_service(name, *args, **kwargs):
 
 @app.command()
 def send_ip_to_feishu(
-    chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6",
+     hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
+     keyword: str = None,
+     secret: str = None,
 ):
     """"""
     name = "send_ip_to_feishu.py"
 
-    return _create_service(name, chat_id=chat_id)
+    return _create_service(name, hook_id=hook_id)
 
 
 @app.command()

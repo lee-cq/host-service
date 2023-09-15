@@ -4,11 +4,22 @@
 
 """
 import asyncio
+import logging
 from pathlib import Path
 
 import yaml
 
+import _base
 from grafana.push import Handler
+
+logger = logging.getLogger("host-service.bin.to-loki")
+
+_base.logging_configurator(
+    name="to-loki",
+    console_print=True,
+    console_level="INFO" if _base.IS_SYSTEMD else "DEBUG",
+    file_level="DEBUG" if _base.IS_SYSTEMD else "INFO",
+)
 
 config = """version: 1
 
@@ -36,18 +47,21 @@ outputs:
 
 def to_loki(file: Path):
     config_dict = yaml.safe_load(file.read_text(encoding="utf8"))
+    logger.info("Loaded Config File Success.")
 
-    hardle = Handler()
+    handle = Handler()
     for i in config_dict["inputs"]:
         i: dict
         type_ = i.pop("type")
-        hardle.register_input(type_, **i)
+        handle.register_input(type_, **i)
+        logger.info("注册输入: %s, %s", type_, i)
     for o in config_dict["outputs"]:
         o: dict
         type_ = o.pop("type")
-        hardle.register_input(type_, **o)
+        handle.register_output(type_, **o)
+        logger.info("注册输出: %s, %s", type_, o)
 
-    asyncio.run(hardle.start())
+    asyncio.run(handle.start())
 
 
 if __name__ == "__main__":

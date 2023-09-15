@@ -51,7 +51,7 @@ class ALokiClient(LokiClientBase):
         self._labels = dict()
         self.client = AsyncClient(
             base_url=f"https://{host}",
-            auth=(user_id, api_key),
+            auth=(str(user_id), api_key),
             verify=verify,
             **kwargs,
         )

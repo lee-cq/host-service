@@ -4,7 +4,7 @@ import logging
 
 from .clash import AClash
 from .client_loki import ALokiClient
-from .demo.loki import Stream
+from .client_loki import Stream
 from .tailscale import Tailscale
 
 logger = logging.getLogger("host-service.grafana.handler")
@@ -14,7 +14,7 @@ class InputBase(metaclass=abc.ABCMeta):
     __input_type__: str
 
     @abc.abstractmethod
-    async def to_hardle(self, queue: asyncio.Queue):
+    async def to_handle(self, queue: asyncio.Queue):
         pass
 
 
@@ -35,25 +35,28 @@ class OutputBase(metaclass=abc.ABCMeta):
 class InputClash(InputBase, AClash):
     __input_type__ = "clash"
 
-    async def to_hardle(self, queue: asyncio.Queue):
+    async def to_handle(self, queue: asyncio.Queue):
+        logger.info("开始加载 AClash 内容 ...")
         await self.run()
+        logger.info("AClash加载成功, 准备向queue推送数据 ...")
         while True:
             for s in await self.create_streams():
                 s: Stream
                 await queue.put(s)  # 目前直接写入的Stream对象
+                logger.debug("AClash -> %s : %s", self.host, s)
 
 
 class InputPing(InputBase):
     __input_type__ = "ping"
 
-    async def to_hardle(self, queue: asyncio.Queue):
+    async def to_handle(self, queue: asyncio.Queue):
         pass
 
 
 class InputTailscale(InputBase, Tailscale):
     __input_type__ = "tailscale"
 
-    async def to_hardle(self, queue: asyncio.Queue):
+    async def to_handle(self, queue: asyncio.Queue):
         await self.run()
         while True:
             async for s in self.to_loki():
@@ -65,7 +68,7 @@ class OutputLoki(OutputBase, ALokiClient):
     __output_type__ = "loki"
 
     def __init__(
-        self, host, user_id, api_key, verify=True, labels: dict = None, **kwargs
+            self, host, user_id, api_key, verify=True, labels: dict = None, **kwargs
     ):
         OutputBase.__init__(self)
         ALokiClient.__init__(
@@ -78,7 +81,9 @@ class OutputLoki(OutputBase, ALokiClient):
         return [await self.queue.get() for _ in range(lens)]
 
     async def to_output(self):
-        await self.push(await self.get_all())
+        while True:
+            await asyncio.sleep(5)
+            await self.push(await self.get_all())
 
 
 class Handler:
@@ -119,9 +124,17 @@ class Handler:
     async def start(self):
         """启动"""
         for i in self.inputs:
-            asyncio.create_task(i.to_hardle(self.queue))
+            i: InputBase
+            asyncio.create_task(i.to_handle(self.queue))
+            logger.info(f"创建输入 task %s", i.__input_type__)
 
         for o in self.outputs:
+            o: OutputBase
             asyncio.create_task(o.to_output())
+            logger.info(f"创建输入 task %s", o.__output_type__)
 
         asyncio.create_task(self.push_to_output())
+        logger.info("创建数据分发task成功 。")
+
+        while True:
+            await asyncio.sleep(10)

@@ -76,7 +76,7 @@ def self_tailscale_ip() -> str:
     """获取本机的tailscale ip"""
     try:
         return (
-            subprocess.run("tailscale ip", capture_output=True, check=True)
+            subprocess.run(["tailscale", "ip"], capture_output=True, check=True)
             .stdout.decode()
             .strip()
             .splitlines(keepends=False)[0]

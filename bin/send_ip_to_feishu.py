@@ -54,7 +54,7 @@ def wait_network(host="feishu.cn"):
 
 @app.command()
 def send_message(
-    hook_id: str = "b0f0c3f0-9b0c-4b0c-9b0c-4b0c9b0c4b0c",
+    hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
     keyword: str = None,
     secret: str = None,
 ):
