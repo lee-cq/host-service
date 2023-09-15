@@ -1,8 +1,8 @@
 #!/bin/env bash
 
-cd "$(dirname $0)" || exit
+cd "$(dirname "$0")" || exit
 
-
+# =================  环境初始化 ==========================
 _py="$(which python3.11)"
 PYTHON=${PYTHON_EXE:-${_py}}
 if [ "${PYTHON}x" == "x" ];then
@@ -21,17 +21,19 @@ source venv/bin/activate
 which python3
 python3 -V
 
-
-if [ ! -f .requirements-installed ];then
+md5_saved=$(cat .requirements-installed 2>/dev/null)
+md5_file=$(md5sum requirements.txt | awk -F' ' '{print $1}')
+if [ "${md5_saved}" != "${md5_file}" ];then
+  echo "requirements.txt 已经更新, 重新安装依赖..."
   if [ "$(pip config get global.index-url)" == "" ]; then
-    echo "设置镜像源： https://pypi.tuna.tsinghua.edu.cn/simple"
+    echo "未配置镜像源，设置为： https://pypi.tuna.tsinghua.edu.cn/simple"
     pip config set global.index-url "https://pypi.tuna.tsinghua.edu.cn/simple"
   fi
-  echo "安装依赖 ..."
   pip install -r requirements.txt
-  pip install -r requirements-dev.txt
-  echo > .requirements-installed
+  echo "${md5_file}" > .requirements-installed
 fi
+
+# ========================= 环境初始化结束 =========================
 
 action=$1
 shift

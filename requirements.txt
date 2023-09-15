@@ -1,16 +1,10 @@
-
-python-dotenv~=1.0.0
-fastapi~=0.101.1
-uvicorn
-
-httpx
-httpx-ws
-
-typer~=0.9.0
-
-lark-oapi
-
-
-Flask~=2.3.2
-pydantic~=2.2.0
-pydantic-settings
+python-dotenv~=1.0.0  # 环境变量加载
+fastapi~=0.103.1  # Restful API web框架
+uvicorn==0.23.2  # ASGI服务器
+httpx==0.24.1  # http客户端
+httpx-ws==0.4.1 #  websocket客户端
+typer~=0.9.0  # 命令行工具
+lark-oapi==1.0.20  # openapi解析
+pydantic~=2.3.0  # 数据模型
+pydantic-settings  # 配置文件解析
+pyyaml==6.0.1   # yaml解析
