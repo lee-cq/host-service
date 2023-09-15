@@ -16,7 +16,7 @@ from httpx import AsyncClient, Client
 from pydantic import BaseModel
 
 
-logger = logging.getLogger("host-service.grafana.loki")
+logger = logging.getLogger("host-service.grafana.client-loki")
 
 
 LogValue = namedtuple("log_value", ["time_ns", "line"])
@@ -60,6 +60,10 @@ class ALokiClient(LokiClientBase):
 
     async def push(self, data: list[Stream | dict]) -> int:
         """Push消息, 返回成功推送的消息数量"""
+        if not data:
+            logger.warning("没有数据 ...")
+            return 0
+        
         lens_data = sum(len(_.values) for _ in data)
         if self._labels:
             [s.stream.update(self._labels) for s in data]

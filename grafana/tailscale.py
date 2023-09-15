@@ -22,6 +22,8 @@ from tools import getencoding
 
 logger = logging.getLogger("host-service.tailscale.connect_status")
 
+tz = datetime.timezone(datetime.timedelta(hours=8))
+
 
 class NotInstallError(Exception):
     """未安装tailscale"""
@@ -63,6 +65,7 @@ class AClient(AsyncClient):
         resp = await self.get(f"tailnet/{self.tsnet}/devices")
         if resp.status_code == 200:
             return [Device(**i) for i in resp.json()["devices"]]
+        logger.warning("Tailscale API 返回了错误[%d] %s", resp.status_code, resp.text)
         return []
 
     async def test_get_devices(self):
@@ -87,21 +90,38 @@ def self_tailscale_ip() -> str:
 
 class Tailscale:
     """上报当前节点与其他节点的连接状态"""
+    EXPIRATION_CONNECT = datetime.timedelta(minutes=30)
+
 
     def __init__(self, tsnet, api_key):
         self.client = AClient(tsnet, api_key)
         self.other_nodes: list = []
         self.ip_hostname = {}
         self.self_ip = self_tailscale_ip()
+        logger.info("tailscale self IP: %s", self.self_ip)
 
         self.queue = asyncio.Queue()
         self.lock = asyncio.Lock()
 
     async def update_other_nodes(self):
+        logger.info("更新Tailscale节点信息")
         while True:
-            ts_nodes = await self.client.get_devices()
-            self.ip_hostname = {d.ipv4: d.hostname for d in ts_nodes}
-            self.other_nodes = [d for d in ts_nodes if d.ipv4 != self.self_ip]
+            try:
+                ts_nodes = await self.client.get_devices()
+                self.ip_hostname = {d.ipv4: d.hostname for d in ts_nodes}
+                self.other_nodes = []
+                for d in ts_nodes:
+                    if d.ipv4 == self.self_ip:
+                        logger.debug("self IP %s, contined .", d.ipv4)
+                        continue
+                    if datetime.datetime.now(tz) - d.lastSeen > self.EXPIRATION_CONNECT:
+                        logger.debug("不活跃节点 %s lastSeen=%s, contined .", d.name, d.lastSeen.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S"))
+                        continue
+                    self.other_nodes.append(d)
+
+                logger.debug("更新Tailscale节点信息, %s : %s", self.client.tsnet ,self.other_nodes)
+            except Exception as _e:
+                logger.warning("更新节点信息是遇见错误： %s", _e, exc_info=True)
             await asyncio.sleep(60)
 
     async def netcheck(self, name):
@@ -110,12 +130,14 @@ class Tailscale:
             proc = await asyncio.create_subprocess_exec(
                 "tailscale",
                 "netcheck",
-                "--format json-line",
+                "--format=json-line",
                 stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await proc.communicate()
             netstat = json.loads(stdout.decode(getencoding()))
             netstat["type"] = "tailscale_netcheck"
+            logger.debug("Push 网络检查结果. %s", netstat)
             await self.queue.put((time.time_ns(), netstat))
         except Exception as _e:
             logger.error("网络检查失败: %s, 5秒后重试", _e, exc_info=True)
@@ -125,6 +147,7 @@ class Tailscale:
     async def ping(self, host, timeout=5):
         """Ping主机并返回延迟时间"""
         async for t in a_ping_ttl(host, timeout):
+            logger.debug("Push Ping 结果：%s, %s",host, t)
             await self.queue.put(
                 (
                     time.time_ns(),
@@ -161,7 +184,7 @@ class Tailscale:
                 stream.update(target=self.ip_hostname.get(data["target"]))
 
             value = json.dumps(data["ttl"]) if "ttl" in data else json.dumps(data)
-
+            logger.debug("tailscale to_loki stream=%s, data=%s", stream, value)
             yield Stream(stream=stream, values=[(str(time_ns), value)])
 
     def run(self):
@@ -173,6 +196,7 @@ class Tailscale:
             self.netcheck("tailscale_netcheck"), name="tailscale_netcheck"
         )
         asyncio.create_task(self.create_pings(), name="tailscale_create_pings")
+        logger.info("tailscale run() started success.")
 
     async def get_all(self, lens=20) -> AsyncIterable[list]:
         """获取所有的ping信息"""

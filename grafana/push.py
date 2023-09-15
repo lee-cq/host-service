@@ -85,7 +85,9 @@ class OutputLoki(OutputBase, ALokiClient):
         logger.info("开始向Loki推送数据 ...")
         while True:
             await asyncio.sleep(5)
-            await self.push(await self.get_all())
+            data = await self.get_all()
+            if data:
+                await self.push()
 
 
 class Handler:
