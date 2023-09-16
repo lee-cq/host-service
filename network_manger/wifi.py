@@ -31,6 +31,23 @@ def _run(cmd: str) -> str:
         cmd, shell=True, encoding=getencoding(), stderr=subprocess.STDOUT
     )
 
+def line_to_list(line: str) -> List[str]:
+    """将一行转换为列表"""
+    return re.split(r"\s{2,}", line)
+
+def table_to_dict(table: str) -> List[Dict[str, str]]:
+    """将表格转换为字典"""
+    res = []
+    title, content = table.split("\n", maxsplit=1)
+    title = line_to_list(table.splitlines()[0])
+    for line in content.splitlines():
+        if not line.strip():
+            continue
+
+        line = line_to_list(line)
+        res.append(dict(zip(title, line)))
+    return res
+
 
 def list_wifi() -> List[Dict[str, Union[str, int]]]:
     """获取Wi-Fi列表"""
@@ -41,34 +58,7 @@ def list_wifi() -> List[Dict[str, Union[str, int]]]:
     res = _run("nmcli dev wifi list")
 
     # 3. 解析Wi-Fi列表
-    wifi_list = []
-    for line in res.splitlines()[1:]:
-        if not line.strip():
-            continue
-
-        # 3.1 解析一行
-        wifi = {}
-        for i, value in enumerate(re.split(r"\s{2,}", line)):
-            if i == 0:
-                wifi["SSID"] = value
-            elif i == 1:
-                wifi["MODE"] = value
-            elif i == 2:
-                wifi["CHAN"] = int(value)
-            elif i == 3:
-                wifi["RATE"] = value
-            elif i == 4:
-                wifi["SIGNAL"] = int(value[:-1])
-            elif i == 5:
-                wifi["BARS"] = int(value)
-            elif i == 6:
-                wifi["SECURITY"] = value
-            elif i == 7:
-                wifi["IN-USE"] = value
-
-        wifi_list.append(wifi)
-
-    return wifi_list
+    return table_to_dict(res)
 
 
 def connect_wifi(ssid: str, password: str) -> bool:
@@ -117,24 +107,7 @@ def get_wifi_status() -> Dict[str, Union[str, int]]:
     """获取Wi-Fi状态"""
     # 1. 获取Wi-Fi状态
     res = _run("nmcli dev status")
-    for line in res.splitlines()[1:]:
-        if not line.strip():
-            continue
-
-        # 2. 解析Wi-Fi状态
-        wifi_status = {}
-        for i, value in enumerate(re.split(r"\s{2,}", line)):
-            if i == 0:
-                wifi_status["DEVICE"] = value
-            elif i == 1:
-                wifi_status["TYPE"] = value
-            elif i == 2:
-                wifi_status["STATE"] = value
-            elif i == 3:
-                wifi_status["CONNECTION"] = value
-            elif i == 4:
-                wifi_status["SSID"] = value
-
-        return wifi_status
-
+    for d in table_to_dict(res):
+        if d["TYPE"] == "wifi":
+            return d
     return {}
