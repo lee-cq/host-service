@@ -155,14 +155,25 @@ class Handler:
 
         asyncio.current_task().set_name("Main")
         logger.info("启动看门狗")
-        start_time, _stream  = timestamp_s(), 0
+        start_time, _stream = timestamp_s(), 0
         while True:
             await asyncio.sleep(60)
             logger.info(
-                "持续运行时间: %d, 转发数据: %d, 最近一分钟转发数据: %d",
+                "持续运行时间: %s, 转发数据: %d, 最近一分钟转发数据: %d, 注册的队列大小: %s",
                 human_timedelta(timestamp_s() - start_time),
                 self.total_stream,
                 self.total_stream - _stream,
+                ", ".join(f"{k}: {v}" for k, v in self.queue_size().items()),
             )
             _stream = self.total_stream
             logger.debug("当前所有的task: %s", self.task_names)
+
+    def queue_size(self) -> dict:
+        rest = {self.__class__.__name__: self.queue.qsize()}
+        for i in self.inputs:
+            if hasattr(i, "queue"):
+                rest[i.__input_type__] = i.queue.qsize()
+        for o in self.outputs:
+            if hasattr(o, "queue"):
+                rest[o.__output_type__] = o.queue.qsize()
+        return rest

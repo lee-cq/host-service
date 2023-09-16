@@ -12,7 +12,7 @@ import logging
 from gzip import compress
 from collections import namedtuple
 
-from httpx import AsyncClient, Client
+from httpx import AsyncClient
 from pydantic import BaseModel
 
 
@@ -77,7 +77,12 @@ class ALokiClient(LokiClientBase):
             headers=headers,
         )
         if resp.status_code == 204:
-            logger.debug("Pushed Success: %d, data size: %d", lens_data, len(data))
+            logger.debug(
+                "Pushed Success: %d, data size: %d, compressed size: %d",
+                lens_data,
+                len(data),
+                len(resp.request.content),
+            )
             return lens_data
         logger.warning(
             "loki push Error, code %d, Msg: %s\n%s",
@@ -96,76 +101,3 @@ class ALokiPush(ALokiClient, LokiPushBase):
     async def push(self, data: list[LogValue]) -> int:
         data = Stream(stream=self._labels, values=data)
         return await super().push([data])
-
-
-class LokiClient(LokiClientBase):
-    def __init__(self, host, user_id, api_key, verify=True, **kwargs):
-        self.client = Client(
-            base_url=f"https://{host}",
-            auth=(user_id, api_key),
-            # headers={'Authorization': f'Bearer {user_id}:{api_key}'},
-            verify=verify,
-            **kwargs,
-        )
-
-    def push(self, data: list[Stream]) -> int:
-        """Push消息, 返回成功推送的消息数量"""
-        lens_data = sum(len(_.values) for _ in data)
-        data = {"streams": [i.model_dump() for i in data if isinstance(i, BaseModel)]}
-        url = "/loki/api/v1/push"
-        resp = self.client.post(
-            url,
-            json=data,
-        )
-        if resp.status_code == 204:
-            return lens_data
-        logger.warning("Loki push Error, code: %d.", resp.status_code)
-        logger.debug("loki push Error, code %d, Msg: %s", resp.status_code, resp.text)
-        return 0
-
-    def query(self, query: str, limit: int = 100) -> list[dict]:
-        """查询日志, 返回查询结果"""
-        url = "/loki/api/v1/query_range"
-        params = {
-            "query": query,
-            "limit": limit,
-        }
-        resp = self.client.get(url, params=params)
-        if resp.status_code != 200:
-            logger.warning("Loki query Error, code: %d.", resp.status_code)
-            logger.debug(
-                "loki query Error, code %d, Msg: %s", resp.status_code, resp.text
-            )
-            return []
-        return resp.json().get("data", {}).get("result", [])
-
-    def query_range(
-        self, query: str, start: int, end: int, limit: int = 100
-    ) -> list[dict]:
-        """查询日志, 返回查询结果"""
-        url = "/loki/api/v1/query_range"
-        params = {
-            "query": query,
-            "start": start,
-            "end": end,
-            "limit": limit,
-        }
-        resp = self.client.get(url, params=params)
-        if resp.status_code != 200:
-            logger.warning("Loki query Error, code: %d.", resp.status_code)
-            logger.debug(
-                "loki query Error, code %d, Msg: %s", resp.status_code, resp.text
-            )
-            return []
-        return resp.json().get("data", {}).get("result", [])
-
-
-class LokiPush(LokiClient, LokiPushBase):
-    def __init__(self, host, user_id, api_key, **kwargs):
-        super().__init__(host, user_id, api_key, **kwargs)
-
-        self._labels = {}
-
-    def push(self, data: list[LogValue]) -> int:
-        data = Stream(stream=self._labels, values=data)
-        return super().push([data])
