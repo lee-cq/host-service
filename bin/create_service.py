@@ -144,6 +144,52 @@ def clash_to_loki(
     )
 
 
+@app_create.command()
+def to_loki(file: Path):
+    """"""
+    name = "to_loki.py"
+    if not file.exists():
+        raise FileNotFoundError(f"文件不存在: {file}")
+    file = file.absolute()
+
+    return _create_service(name, file)
+
+
+
+app = typer.Typer()
+
+
+@app.command()
+def create():
+    """"""
+    pass
+
+
+@app.command()
+def start():
+    pass
+
+
+@app.command()
+def stop():
+    pass
+
+
+@app.command()
+def list_service():
+    pass
+
+
+@app.command()
+def status():
+    pass
+
+
+@app.command()
+def delete():
+    pass
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s - %(message)s"
