@@ -3,8 +3,11 @@
 
 import os
 import sys
+import logging
 import logging.config
 from pathlib import Path
+
+logger = logging.getLogger("host-service.bin._base")
 
 WORKDIR = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(WORKDIR))
@@ -44,7 +47,19 @@ def logging_configurator(
         "disable_existing_loggers": False,
         "formatters": {
             "simple": {"format": "%(asctime)s %(name)s %(levelname)s - %(message)s"},
-            "systemd": {"format": "%(name)s %(levelname)s - %(message)s"},
+            "systemd": {"format":"%(name)s %(levelname)s - %(message)s"},
+            "error": {
+                "format": (
+                    "TIME      = %(asctime)s \n"
+                    "FILE_NAME = %(filename)s \n"
+                    "FUNC_NAME = %(funcName)s \n"
+                    "LINE_NO   = %(lineno)d \n"
+                    "LEVEL     = %(levelname)s \n"
+                    "MESSAGE   = %(message)s \n"
+                    "EXCEPTION = %(exc_info)s \n"
+                    "+------------------------------------------+"
+                )
+            },
         },
         "handlers": {
             "console": {
@@ -58,6 +73,13 @@ def logging_configurator(
                 "filename": f"logs/{name}.log",
                 "mode": "a+",
                 "level": file_level,
+            },
+            "file_warning": {
+                "class": "logging.FileHandler",
+                "formatter": "error",
+                "filename": f"logs/{name}-error.log",
+                "mode": "a+",
+                "level": "WARNING",
             },
             "root": {
                 "class": "logging.FileHandler",
@@ -74,11 +96,12 @@ def logging_configurator(
             }
         },
         "root": {
-            "handlers": ["root"],
+            "handlers": ["root", "file_warning"],
             "level": "DEBUG",
         },
     }
     logging.config.dictConfig(log_config)
+    logger.warning(f"Restart {name} ......")
 
 
 if __name__ == "__main__":

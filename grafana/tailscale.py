@@ -109,7 +109,6 @@ class Tailscale:
         # )
 
     async def update_other_nodes(self):
-        logger.info("更新Tailscale节点信息")
         try:
             ts_nodes = await self.client.get_devices()
             self.ip_hostname = {d.ipv4: d.hostname for d in ts_nodes}

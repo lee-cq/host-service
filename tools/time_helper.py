@@ -28,3 +28,7 @@ def timestamp_ns() -> int:
     if hasattr(time, "time_ns"):
         return time.time_ns()
     return int(time.time() * 1000000000)
+
+
+def human_timedelta(seconds: int) -> str:
+    return str(datetime.timedelta(seconds=seconds))
