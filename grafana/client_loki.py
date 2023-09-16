@@ -63,7 +63,7 @@ class ALokiClient(LokiClientBase):
         if not data:
             logger.warning("没有数据 ...")
             return 0
-        
+        data = [d for d in data if isinstance(d, (Stream, dict))]
         lens_data = sum(len(_.values) for _ in data)
         if self._labels:
             [s.stream.update(self._labels) for s in data]

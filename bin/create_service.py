@@ -16,7 +16,7 @@ from pathlib import Path
 import typer
 
 
-app = typer.Typer()
+app_create = typer.Typer()
 logger = logging.getLogger("host-service.bin.create-service")
 
 WORKDIR = Path(__file__).parent.parent.absolute()
@@ -31,7 +31,7 @@ def join_exec_start(name: str, *args, **kwargs):
     for k, v in kwargs.items():
         exec_start += f"--{k.replace('_', '-')} {v} "
 
-    return exec_start + " " + " ".join(args)
+    return exec_start + " " + " ".join(str(_) for _ in args)
 
 
 def join_service(name, exec_start):
@@ -95,19 +95,19 @@ def _create_service(name, *args, **kwargs):
     logger.info(f"停止服务: systemctl --user stop {name}")
 
 
-@app.command()
+@app_create.command()
 def send_ip_to_feishu(
-     hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
-     keyword: str = None,
-     secret: str = None,
+    hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
+    keyword: str = None,
+    secret: str = None,
 ):
     """"""
     name = "send_ip_to_feishu.py"
 
-    return _create_service(name, hook_id=hook_id)
+    return _create_service(name, hook_id=hook_id, keyword=keyword, secret=secret)
 
 
-@app.command()
+@app_create.command()
 def ping_info(
     host: str,
     timeout: int = 60,
@@ -119,7 +119,7 @@ def ping_info(
     return _create_service(name, host, timeout, chat_id)
 
 
-@app.command()
+@app_create.command()
 def clash_to_loki(
     clash_host: str = None,
     clash_token: str = None,
@@ -148,4 +148,4 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s - %(message)s"
     )
-    app()
+    app_create()

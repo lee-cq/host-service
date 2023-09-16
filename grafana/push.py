@@ -58,11 +58,14 @@ class InputTailscale(InputBase, Tailscale):
     __input_type__ = "tailscale"
 
     async def to_handle(self, queue: asyncio.Queue):
-        await self.run()
-        while True:
-            async for s in self.to_loki():
-                s: Stream
-                await queue.put(s)
+        logger.info("初始化 Tailscale 内容 ...")
+        self.run()
+        await asyncio.sleep(1)
+        logger.info("开始加载 Tailscale 内容 ...")
+        async for s in self.to_loki():
+            s: Stream
+            await queue.put(s)
+            logger.debug("Tailscale %s -> Handler : %s", self.client.tsnet, s)
 
 
 class OutputLoki(OutputBase, ALokiClient):
@@ -87,7 +90,7 @@ class OutputLoki(OutputBase, ALokiClient):
             await asyncio.sleep(5)
             data = await self.get_all()
             if data:
-                await self.push()
+                await self.push(data)
 
 
 class Handler:

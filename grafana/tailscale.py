@@ -90,41 +90,50 @@ def self_tailscale_ip() -> str:
 
 class Tailscale:
     """上报当前节点与其他节点的连接状态"""
-    EXPIRATION_CONNECT = datetime.timedelta(minutes=30)
 
+    EXPIRATION_CONNECT = datetime.timedelta(minutes=120)
 
     def __init__(self, tsnet, api_key):
         self.client = AClient(tsnet, api_key)
-        self.other_nodes: list = []
-        self.ip_hostname = {}
         self.self_ip = self_tailscale_ip()
+        self.name_prefix = f"tailscale_{tsnet}"
         logger.info("tailscale self IP: %s", self.self_ip)
 
         self.queue = asyncio.Queue()
-        self.lock = asyncio.Lock()
+        # self.lock = asyncio.Lock()
+
+        self.other_nodes: list = []
+        self.ip_hostname = {}
+        # asyncio.create_task(
+        #     self.update_other_nodes(), name=f"{self.name_prefix}_nodes_first"
+        # )
 
     async def update_other_nodes(self):
         logger.info("更新Tailscale节点信息")
-        while True:
-            try:
-                ts_nodes = await self.client.get_devices()
-                self.ip_hostname = {d.ipv4: d.hostname for d in ts_nodes}
-                self.other_nodes = []
-                for d in ts_nodes:
-                    if d.ipv4 == self.self_ip:
-                        logger.debug("self IP %s, contined .", d.ipv4)
-                        continue
-                    if datetime.datetime.now(tz) - d.lastSeen > self.EXPIRATION_CONNECT:
-                        logger.debug("不活跃节点 %s lastSeen=%s, contined .", d.name, d.lastSeen.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S"))
-                        continue
-                    self.other_nodes.append(d)
+        try:
+            ts_nodes = await self.client.get_devices()
+            self.ip_hostname = {d.ipv4: d.hostname for d in ts_nodes}
+            other_nodes = []
+            for d in ts_nodes:
+                if d.ipv4 == self.self_ip:
+                    logger.debug("self IP %s, continued .", d.ipv4)
+                    continue
+                if datetime.datetime.now(tz) - d.lastSeen > self.EXPIRATION_CONNECT:
+                    logger.debug(
+                        "不活跃节点 %s lastSeen=%s, continued .",
+                        d.name,
+                        d.lastSeen.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S"),
+                    )
+                    continue
+                other_nodes.append(d)
+            self.other_nodes = other_nodes
+            logger.debug(
+                "最新Tailscale节点信息, %s : %s", self.client.tsnet, self.other_nodes
+            )
+        except Exception as _e:
+            logger.warning("更新节点信息是遇见错误： %s", _e, exc_info=True)
 
-                logger.debug("更新Tailscale节点信息, %s : %s", self.client.tsnet ,self.other_nodes)
-            except Exception as _e:
-                logger.warning("更新节点信息是遇见错误： %s", _e, exc_info=True)
-            await asyncio.sleep(60)
-
-    async def netcheck(self, name):
+    async def netcheck(self):
         """网络检查"""
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -141,13 +150,11 @@ class Tailscale:
             await self.queue.put((time.time_ns(), netstat))
         except Exception as _e:
             logger.error("网络检查失败: %s, 5秒后重试", _e, exc_info=True)
-        await asyncio.sleep(5)
-        asyncio.create_task(self.netcheck(name), name=name)
 
     async def ping(self, host, timeout=5):
         """Ping主机并返回延迟时间"""
         async for t in a_ping_ttl(host, timeout):
-            logger.debug("Push Ping 结果：%s, %s",host, t)
+            logger.debug("Push Ping 结果：%s, %s", host, t)
             await self.queue.put(
                 (
                     time.time_ns(),
@@ -162,40 +169,55 @@ class Tailscale:
 
     async def create_pings(self):
         """上报当前节点与其他节点的连接状态"""
-        while True:
-            for node in self.other_nodes:
-                name = f"tailscale_ping_{node.ipv4}"
-                if name not in [t.get_name() for t in asyncio.all_tasks()]:
-                    asyncio.create_task(self.ping(node.ipv4), name=name)
-            await asyncio.sleep(60)
+        for node in self.other_nodes:
+            name = f"{self.name_prefix}_ping_{node.ipv4}"
+            if name not in [t.get_name() for t in asyncio.all_tasks()]:
+                asyncio.create_task(self.ping(node.ipv4), name=name)
+                logger.debug("创建一个ping任务: %s", name)
+            await asyncio.sleep(0.1)
 
     async def to_loki(self) -> AsyncIterable[Stream]:
         """转换为loki格式"""
+        logger.info("开始将Tailscale数据转换为Loki格式 ...")
         while True:
-            time_ns, data = await self.queue.get()
-            if self.queue.empty():
-                await asyncio.sleep(1)
-                yield None
-            stream = dict(
-                type=data["type"],
-                source=self.self_ip,
-            )
-            if "target" in data:
-                stream.update(target=self.ip_hostname.get(data["target"]))
+            await asyncio.sleep(0)
+            logger.debug("tailscale to_loki queue size: %d", self.queue.qsize())
+            try:
+                time_ns, data = await self.queue.get()
+                stream = dict(
+                    type=data["type"],
+                    source=self.ip_hostname.get(self.self_ip),
+                )
+                if "target" in data:
+                    stream.update(target=self.ip_hostname.get(data["target"]))
 
-            value = json.dumps(data["ttl"]) if "ttl" in data else json.dumps(data)
-            logger.debug("tailscale to_loki stream=%s, data=%s", stream, value)
-            yield Stream(stream=stream, values=[(str(time_ns), value)])
+                value = json.dumps(data["ttl"]) if "ttl" in data else json.dumps(data)
+                logger.debug("tailscale to_loki stream=%s, data=%s", stream, value)
+                yield Stream(stream=stream, values=[(str(time_ns), value)])
+            except Exception as _e:
+                logger.warning("tailscale to_loki error: %s", _e, exc_info=True)
 
     def run(self):
-        asyncio.create_task(
-            self.update_other_nodes(),
-            name=f"tailscale_update_other_nodes_{self.client.tsnet}",
-        )
-        asyncio.create_task(
-            self.netcheck("tailscale_netcheck"), name="tailscale_netcheck"
-        )
-        asyncio.create_task(self.create_pings(), name="tailscale_create_pings")
+        """每分钟创建一个ping任务"""
+
+        async def _run():
+            while True:
+                asyncio.create_task(
+                    self.update_other_nodes(), name=f"{self.name_prefix}_update_nodes"
+                )
+                asyncio.create_task(
+                    self.netcheck(), name=f"{self.name_prefix}_netcheck"
+                )
+                n = 5
+                while not self.other_nodes and n:
+                    n -= 1
+                    await asyncio.sleep(1)
+                asyncio.create_task(
+                    self.create_pings(), name=f"{self.name_prefix}_pings"
+                )
+                await asyncio.sleep(60)
+
+        asyncio.create_task(_run(), name=f"{self.name_prefix}_run")
         logger.info("tailscale run() started success.")
 
     async def get_all(self, lens=20) -> AsyncIterable[list]:
@@ -213,9 +235,9 @@ class Tailscale:
 
     async def run_with_loki(self, loki_client: ALokiClient):
         """使用Loki客户端运行"""
-        with self.lock:
-            self.run()
-            async for s in self.get_all():
-                logger.debug("Queue size: %d", self.queue.qsize())
-                if s:
-                    await loki_client.push(s)
+
+        self.run()
+        async for s in self.get_all():
+            logger.debug("Queue size: %d", self.queue.qsize())
+            if s:
+                await loki_client.push(s)

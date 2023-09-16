@@ -86,13 +86,21 @@ async def a_ping_ttl(host, timeout=5) -> AsyncIterable[float]:
     :param timeout: 单次超时时间
     :return:
     """
-
-    proc = await asyncio.create_subprocess_shell(
-        f"ping -t {host} -w {timeout}",
+    logger.debug("ping %s timeout: %s", host, timeout)
+    proc = await asyncio.create_subprocess_exec(
+        "ping",
+        host,
+        "-i",
+        str(timeout),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
+    logger.debug("ping %s pid: %s", host, proc.pid)
     while True:
+        await asyncio.sleep(0.01)
+        if proc.returncode is not None:
+            logger.warning("ping %s return code: %s", host, proc.returncode)
+            break
         try:
             line = (await proc.stdout.readline()).decode(getencoding())
             _re = re.findall(RE_PING_TTL[sys.platform], line)
