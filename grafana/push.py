@@ -79,11 +79,20 @@ class OutputLoki(OutputBase, ALokiClient):
         ALokiClient.__init__(
             self, host, user_id, api_key, verify=verify, labels=labels, **kwargs
         )
+        self.total_push = 0
 
     async def get_all(self, lens=40) -> list[Stream]:
         """获取所有的ping信息"""
         lens = lens if lens <= self.queue.qsize() else self.queue.qsize()
         return [await self.queue.get() for _ in range(lens)]
+
+    async def _try_push(self, data):
+        try:
+            self.total_push += await self.push(data)
+        except Exception as e:
+            logger.warning(e)
+            await asyncio.sleep(3)
+            await self._try_push(data)
 
     async def to_output(self):
         logger.info("开始向Loki推送数据 ...")
@@ -91,7 +100,7 @@ class OutputLoki(OutputBase, ALokiClient):
             await asyncio.sleep(5)
             data = await self.get_all()
             if data:
-                await self.push(data)
+                asyncio.create_task(self._try_push(data), name=f"push_to_loki_{timestamp_s()}")
 
 
 class Handler:
