@@ -47,6 +47,9 @@ case $action in
 venv)
   exec source venv/bin/activate
   ;;
+service )
+  exec python bin/service.py "$@"
+  ;;
 run)
   cd 'bin/' || exit 1
   exec python "$@"

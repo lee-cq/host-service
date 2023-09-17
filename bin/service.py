@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@File Name  : create_service.py
+@File Name  : service.py
 @Author     : LeeCQ
 @Date-Time  : 2023/9/12 14:29
 
-创建服务
+创建服务  创建系统级服务，需要root权限
+创建的服务是对系统服务的支持应该随系统启动。
 
 """
 
@@ -19,10 +20,15 @@ import typer
 app_create = typer.Typer()
 logger = logging.getLogger("host-service.bin.create-service")
 
-WORKDIR = Path(__file__).parent.parent.absolute()
-
 if os.name == "nt":
     raise OSError("不支持Windows系统")
+
+WORKDIR = Path(__file__).parent.parent.absolute()
+SERVICE_DIR_USER = Path.home().joinpath(".config", "systemd", "user")
+SERVICE_DIR_SYSTEM = Path("/usr/lib/systemd/system")
+SERVICE_DIR = SERVICE_DIR_USER
+
+USER_NAME = os.environ.get("USER")
 
 
 def join_exec_start(name: str, *args, **kwargs):
@@ -49,7 +55,7 @@ def join_service(name, exec_start):
         f"\nRestartSec=5s"
         f"\n"
         f"\n[Install]"
-        f"\nWantedBy=default.target"
+        f"\nWantedBy={'multi-user.target' if SERVICE_DIR == SERVICE_DIR_SYSTEM else 'default.target'}"
         f"\n"
     )
 
@@ -60,10 +66,9 @@ def create_service_file(name, service):
         name = name[:-3]
 
     name = name.replace("_", "-")
-    user_service_dir = Path.home().joinpath(".config", "systemd", "user")
-    user_service_dir.mkdir(parents=True, exist_ok=True)
 
-    service_file = user_service_dir.joinpath(f"{name}.service")
+    SERVICE_DIR.mkdir(parents=True, exist_ok=True)
+    service_file = SERVICE_DIR.joinpath(f"{name}.service")
     if service_file.exists():
         logger.info(f"Service file already exists: {service_file}")
         if input(f"{service_file}已经存在, 是否覆盖? [y/n]: ").lower() != "y":
@@ -95,7 +100,7 @@ def _create_service(name, *args, **kwargs):
     logger.info(f"停止服务: systemctl --user stop {name}")
 
 
-@app_create.command()
+@app_create.command(name="send-ip-to-feishu")
 def send_ip_to_feishu(
     hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
     keyword: str = None,
@@ -107,7 +112,7 @@ def send_ip_to_feishu(
     return _create_service(name, hook_id=hook_id, keyword=keyword, secret=secret)
 
 
-@app_create.command()
+@app_create.command(name="ping-info")
 def ping_info(
     host: str,
     timeout: int = 60,
@@ -119,7 +124,7 @@ def ping_info(
     return _create_service(name, host, timeout, chat_id)
 
 
-@app_create.command()
+@app_create.command(name="clash-to-loki")
 def clash_to_loki(
     clash_host: str = None,
     clash_token: str = None,
@@ -144,7 +149,7 @@ def clash_to_loki(
     )
 
 
-@app_create.command()
+@app_create.command(name="to-loki")
 def to_loki(file: Path):
     """"""
     name = "to_loki.py"
@@ -155,43 +160,52 @@ def to_loki(file: Path):
     return _create_service(name, file)
 
 
-
-app = typer.Typer()
-
-
-@app.command()
-def create():
-    """"""
-    pass
+app = typer.Typer(
+    name="service",
+)
+app.add_typer(app_create, name="create", help="创建service")
 
 
 @app.command()
-def start():
+def start(service_name: str):
+    """启动一个service"""
+
+
+@app.command(name="stop")
+def stop(service_name: str):
+    """停止一个service"""
     pass
+
+
+@app.command(name="list")
+def list_(all: bool = False):
+    """列出已经安装的service"""
+    print("已经安装的service:", end=" ")
+    commands = [c.name + ".service" for c in app_create.registered_commands]
+    if all:
+        print(commands)
+        return commands
+    commands = [c for c in commands if SERVICE_DIR.joinpath(c).exists()]
+    return commands
 
 
 @app.command()
-def stop():
-    pass
+def status(service_name: str):
+    """查看service状态"""
+    os.system("systemctl --user status " + service_name)
 
 
 @app.command()
-def list_service():
-    pass
-
-
-@app.command()
-def status():
-    pass
-
-
-@app.command()
-def delete():
-    pass
+def delete(service_name: str):
+    """删除一个service"""
+    os.system("systemctl --user stop " + service_name)
+    os.system("systemctl --user disable " + service_name)
+    os.system("rm -rf " + str(SERVICE_DIR.joinpath(service_name + ".service")))
 
 
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s - %(message)s"
     )
-    app_create()
+    # app_create()
+    app()
