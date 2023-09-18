@@ -73,7 +73,8 @@ def join_exec_start(name: str, *args, **kwargs):
     """拼接ExecStart字符串"""
     exec_start = f"{WORKDIR.absolute().joinpath('bootstrap.sh')} run {name} "
     for k, v in kwargs.items():
-        exec_start += f"--{k.replace('_', '-')} {v} "
+        if v:
+            exec_start += f"--{k.replace('_', '-')} {v} "
 
     return exec_start + " " + " ".join(str(_) for _ in args)
 
@@ -132,13 +133,14 @@ def _create_service(name, *args, **kwargs):
 
     name = name.replace("_", "-")
     create_service_file(name, service)
-    os.system("systemctl --user daemon-reload")
+    os.system("sudo systemctl daemon-reload")
 
     logger.info("服务创建成功, 请执行以下命令:\n")
-    logger.info(f"启动服务: systemctl --user start {name}")
-    logger.info(f"设置开机自启: systemctl --user enable {name}")
-    logger.info(f"查看服务状态: systemctl --user status {name}")
-    logger.info(f"停止服务: systemctl --user stop {name}")
+    logger.info(f"启动服务: sudo systemctl start {name}")
+    logger.info(f"设置开机自启: sudo systemctl enable {name}")
+    logger.info(f"查看服务状态: systemctl status {name}")
+    logger.info(f"停止服务: sudo systemctl stop {name}")
+    logger.info(f"禁用服务: sudo systemctl disable {name}")
 
 
 @app_create.command(name="send-ip-to-feishu")
