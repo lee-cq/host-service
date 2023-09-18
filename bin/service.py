@@ -12,11 +12,11 @@
 
 import os
 import logging
+import subprocess
 from pathlib import Path
 
 import typer
 from pydantic import BaseModel
-
 
 logger = logging.getLogger("host-service.bin.create-service")
 
@@ -26,7 +26,6 @@ SERVICE_DIR_SYSTEM = Path("/usr/lib/systemd/system")
 SERVICE_DIR = SERVICE_DIR_SYSTEM
 
 USER_NAME = os.environ.get("USER")
-
 
 app = typer.Typer(name="service")
 app_create = typer.Typer()
@@ -45,12 +44,21 @@ APP_CONFIG = AppConfig()
 
 
 @app.callback()
-def callback(
-    restart: str = "on-failure",
-    restart_sec: int = 5,
-    user: str = USER_NAME,
-    group: str = None,
-    debug: bool = False,
+def callback_create(
+        debug: bool = False
+):
+    APP_CONFIG.debug = debug
+
+    if os.name == "nt" and not debug:
+        raise OSError("不支持Windows系统")
+
+
+@app_create.callback()
+def callback_create(
+        restart: str = "on-failure",
+        restart_sec: int = 5,
+        user: str = USER_NAME,
+        group: str = None,
 ):
     """创建服务  创建系统级服务，需要root权限
     创建的服务是对系统服务的支持应该随系统启动。
@@ -59,10 +67,6 @@ def callback(
     APP_CONFIG.restart_sec = restart_sec
     APP_CONFIG.user = user
     APP_CONFIG.group = group
-    APP_CONFIG.debug = False
-
-    if os.name == "nt" and not debug:
-        raise OSError("不支持Windows系统")
 
 
 def join_exec_start(name: str, *args, **kwargs):
@@ -83,6 +87,7 @@ def join_service(name, exec_start):
         f"\n"
         f"\n[Service]"
         f"\nType=simple"
+        f"\nUser={APP_CONFIG.user}"
         f"\nWorkingDirectory={WORKDIR}"
         f"\nExecStart={exec_start}"
         f"\nRestart={APP_CONFIG.restart}"
@@ -96,10 +101,6 @@ def join_service(name, exec_start):
 
 def create_service_file(name, service):
     """创建Service文件"""
-    if name.endswith(".py"):
-        name = name[:-3]
-
-    name = name.replace("_", "-")
 
     SERVICE_DIR.mkdir(parents=True, exist_ok=True)
     service_file = SERVICE_DIR.joinpath(f"{name}.service")
@@ -107,8 +108,14 @@ def create_service_file(name, service):
         logger.info(f"Service file already exists: {service_file}")
         if input(f"{service_file}已经存在, 是否覆盖? [y/n]: ").lower() != "y":
             logger.info("已取消")
-            return
-    service_file.write_text(service, encoding="utf8")
+            exit(1)
+    if APP_CONFIG.debug:
+        logger.info("向 %s 写入如下内容: >\n%s\n======", service_file, service)
+        if input("是否继续写入? [y/n]: ").lower() != 'y':
+            logger.info("False: 退出.")
+            exit(1)
+    # service_file.write_text(service, encoding="utf8")  # TODO
+    subprocess.run(["sudo", "tee", service_file], input=service, encoding="utf8")
     logger.info(f"Created service file: {service_file}")
 
 
@@ -136,9 +143,9 @@ def _create_service(name, *args, **kwargs):
 
 @app_create.command(name="send-ip-to-feishu")
 def send_ip_to_feishu(
-    hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
-    keyword: str = None,
-    secret: str = None,
+        hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
+        keyword: str = None,
+        secret: str = None,
 ):
     """"""
     name = "send_ip_to_feishu.py"
@@ -148,9 +155,9 @@ def send_ip_to_feishu(
 
 @app_create.command(name="ping-info")
 def ping_info(
-    host: str,
-    timeout: int = 60,
-    chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6",
+        host: str,
+        timeout: int = 60,
+        chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6",
 ):
     """"""
     name = "ping_info.py"
@@ -160,11 +167,11 @@ def ping_info(
 
 @app_create.command(name="clash-to-loki")
 def clash_to_loki(
-    clash_host: str = None,
-    clash_token: str = None,
-    loki_host: str = None,
-    loki_user_id: str = None,
-    loki_api_key: str = None,
+        clash_host: str = None,
+        clash_token: str = None,
+        loki_host: str = None,
+        loki_user_id: str = None,
+        loki_api_key: str = None,
 ):
     """"""
     # 获取当前用户 & 组
@@ -197,12 +204,13 @@ def to_loki(file: Path):
 @app.command()
 def start(service_name: str):
     """启动一个service"""
+    os.system(f"sudo systemctl start {service_name}")
 
 
 @app.command(name="stop")
 def stop(service_name: str):
     """停止一个service"""
-    pass
+    os.system(f"sudo systemctl stop {service_name}")
 
 
 @app.command(name="list")
@@ -220,7 +228,7 @@ def list_(all: bool = False):
 @app.command()
 def status(service_name: str):
     """查看service状态"""
-    os.system("systemctl --user status " + service_name)
+    os.system(f"systemctl status {service_name}")
 
 
 @app.command()

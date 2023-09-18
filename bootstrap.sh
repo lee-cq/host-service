@@ -25,7 +25,7 @@ source venv/bin/activate
 which python3
 python3 -V
 
-md5_saved=$(cat .requirements-installed 2>/dev/null)
+md5_saved=$(cat .requirements-installed 2>/dev/null || echo "")
 md5_file=$(md5sum requirements.txt | awk -F' ' '{print $1}')
 if [ "${md5_saved}" != "${md5_file}" ]; then
   echo "requirements.txt 已经更新, 重新安装依赖..."
