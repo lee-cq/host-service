@@ -15,20 +15,54 @@ import logging
 from pathlib import Path
 
 import typer
+from pydantic import BaseModel
 
 
-app_create = typer.Typer()
 logger = logging.getLogger("host-service.bin.create-service")
 
-if os.name == "nt":
-    raise OSError("不支持Windows系统")
-
 WORKDIR = Path(__file__).parent.parent.absolute()
-SERVICE_DIR_USER = Path.home().joinpath(".config", "systemd", "user")
+# SERVICE_DIR_USER = Path.home().joinpath(".config", "systemd", "user")
 SERVICE_DIR_SYSTEM = Path("/usr/lib/systemd/system")
-SERVICE_DIR = SERVICE_DIR_USER
+SERVICE_DIR = SERVICE_DIR_SYSTEM
 
 USER_NAME = os.environ.get("USER")
+
+
+app = typer.Typer(name="service")
+app_create = typer.Typer()
+app.add_typer(app_create, name="create", help="创建service")
+
+
+class AppConfig(BaseModel):
+    restart: str = "on-failure"
+    restart_sec: int = 5
+    user: str = USER_NAME
+    group: str | None = None
+    debug: bool = False
+
+
+APP_CONFIG = AppConfig()
+
+
+@app.callback()
+def callback(
+    restart: str = "on-failure",
+    restart_sec: int = 5,
+    user: str = USER_NAME,
+    group: str = None,
+    debug: bool = False,
+):
+    """创建服务  创建系统级服务，需要root权限
+    创建的服务是对系统服务的支持应该随系统启动。
+    """
+    APP_CONFIG.restart = restart.lower()
+    APP_CONFIG.restart_sec = restart_sec
+    APP_CONFIG.user = user
+    APP_CONFIG.group = group
+    APP_CONFIG.debug = False
+
+    if os.name == "nt" and not debug:
+        raise OSError("不支持Windows系统")
 
 
 def join_exec_start(name: str, *args, **kwargs):
@@ -51,11 +85,11 @@ def join_service(name, exec_start):
         f"\nType=simple"
         f"\nWorkingDirectory={WORKDIR}"
         f"\nExecStart={exec_start}"
-        f"\nRestart=on-failure"
-        f"\nRestartSec=5s"
+        f"\nRestart={APP_CONFIG.restart}"
+        f"\nRestartSec={APP_CONFIG.restart_sec}s"
         f"\n"
         f"\n[Install]"
-        f"\nWantedBy={'multi-user.target' if SERVICE_DIR == SERVICE_DIR_SYSTEM else 'default.target'}"
+        f"\nWantedBy=multi-user.target"
         f"\n"
     )
 
@@ -160,12 +194,6 @@ def to_loki(file: Path):
     return _create_service(name, file)
 
 
-app = typer.Typer(
-    name="service",
-)
-app.add_typer(app_create, name="create", help="创建service")
-
-
 @app.command()
 def start(service_name: str):
     """启动一个service"""
@@ -180,12 +208,12 @@ def stop(service_name: str):
 @app.command(name="list")
 def list_(all: bool = False):
     """列出已经安装的service"""
-    print("已经安装的service:", end=" ")
     commands = [c.name + ".service" for c in app_create.registered_commands]
     if all:
-        print(commands)
+        print("全部支持的service:", commands)
         return commands
     commands = [c for c in commands if SERVICE_DIR.joinpath(c).exists()]
+    print("已经安装的service:", commands)
     return commands
 
 
