@@ -2,7 +2,7 @@ import abc
 import asyncio
 import logging
 
-from tools import timestamp_s, human_timedelta
+from tools import timestamp_s, human_timedelta, timestamp_ms
 from .clash import AClash
 from .client_loki import ALokiClient
 from .client_loki import Stream
@@ -83,24 +83,29 @@ class OutputLoki(OutputBase, ALokiClient):
 
     async def get_all(self, lens=40) -> list[Stream]:
         """获取所有的ping信息"""
+        if lens <= 40:
+            await asyncio.sleep(5)
+
         lens = lens if lens <= self.queue.qsize() else self.queue.qsize()
         return [await self.queue.get() for _ in range(lens)]
 
     async def _try_push(self, data):
+        asyncio.current_task().set_name(f"loki.try_push.{timestamp_ms()}")
         try:
             self.total_push += await self.push(data)
         except Exception as e:
-            logger.warning(e)
-            await asyncio.sleep(3)
-            await self._try_push(data)
+            logger.warning("push to loki has a Error, %s", e, exc_info=True)
+            [await self.queue.put(d) for d in data]
 
     async def to_output(self):
         logger.info("开始向Loki推送数据 ...")
         while True:
-            await asyncio.sleep(5)
+            await asyncio.sleep(0.1)
             data = await self.get_all()
             if data:
-                asyncio.create_task(self._try_push(data), name=f"push_to_loki_{timestamp_s()}")
+                asyncio.create_task(
+                    self._try_push(data), name=f"push_to_loki_{timestamp_s()}"
+                )
 
 
 class Handler:

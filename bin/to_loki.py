@@ -11,6 +11,7 @@ import yaml
 
 import _base
 from grafana.push import Handler
+from tools import gc_callback
 
 logger = logging.getLogger("host-service.bin.to-loki")
 
@@ -66,5 +67,8 @@ def to_loki(file: Path):
 
 if __name__ == "__main__":
     import typer
+    import gc
+
+    gc.callbacks.append(gc_callback)
 
     typer.run(to_loki)

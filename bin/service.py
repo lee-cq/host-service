@@ -44,9 +44,7 @@ APP_CONFIG = AppConfig()
 
 
 @app.callback()
-def callback_create(
-        debug: bool = False
-):
+def callback_create(debug: bool = False):
     APP_CONFIG.debug = debug
 
     if os.name == "nt" and not debug:
@@ -55,10 +53,10 @@ def callback_create(
 
 @app_create.callback()
 def callback_create(
-        restart: str = "on-failure",
-        restart_sec: int = 5,
-        user: str = USER_NAME,
-        group: str = None,
+    restart: str = "on-failure",
+    restart_sec: int = 5,
+    user: str = USER_NAME,
+    group: str = None,
 ):
     """创建服务  创建系统级服务，需要root权限
     创建的服务是对系统服务的支持应该随系统启动。
@@ -112,7 +110,7 @@ def create_service_file(name, service):
             exit(1)
     if APP_CONFIG.debug:
         logger.info("向 %s 写入如下内容: >\n%s\n======", service_file, service)
-        if input("是否继续写入? [y/n]: ").lower() != 'y':
+        if input("是否继续写入? [y/n]: ").lower() != "y":
             logger.info("False: 退出.")
             exit(1)
     # service_file.write_text(service, encoding="utf8")  # TODO
@@ -145,9 +143,9 @@ def _create_service(name, *args, **kwargs):
 
 @app_create.command(name="send-ip-to-feishu")
 def send_ip_to_feishu(
-        hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
-        keyword: str = None,
-        secret: str = None,
+    hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
+    keyword: str = None,
+    secret: str = None,
 ):
     """"""
     name = "send_ip_to_feishu.py"
@@ -157,9 +155,9 @@ def send_ip_to_feishu(
 
 @app_create.command(name="ping-info")
 def ping_info(
-        host: str,
-        timeout: int = 60,
-        chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6",
+    host: str,
+    timeout: int = 60,
+    chat_id: str = "oc_935401cad663f0bf845df98b3abd0cf6",
 ):
     """"""
     name = "ping_info.py"
@@ -169,11 +167,11 @@ def ping_info(
 
 @app_create.command(name="clash-to-loki")
 def clash_to_loki(
-        clash_host: str = None,
-        clash_token: str = None,
-        loki_host: str = None,
-        loki_user_id: str = None,
-        loki_api_key: str = None,
+    clash_host: str = None,
+    clash_token: str = None,
+    loki_host: str = None,
+    loki_user_id: str = None,
+    loki_api_key: str = None,
 ):
     """"""
     # 获取当前用户 & 组
@@ -236,8 +234,8 @@ def status(service_name: str):
 @app.command()
 def delete(service_name: str):
     """删除一个service"""
-    os.system("systemctl --user stop " + service_name)
-    os.system("systemctl --user disable " + service_name)
+    os.system("systemctl stop " + service_name)
+    os.system("systemctl disable " + service_name)
     os.system("rm -rf " + str(SERVICE_DIR.joinpath(service_name + ".service")))
 
 
