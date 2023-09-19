@@ -19,7 +19,7 @@ import _base
 _base.logging_configurator(
     name="network-manager",
     console_print=True,
-    console_level="INFO" if _base.IS_SYSTEMD else "INFO",
+    console_level="INFO" if _base.IS_SYSTEMD else "DEBUG",
     file_level="DEBUG" if _base.IS_SYSTEMD else "INFO",
 )
 
@@ -45,15 +45,19 @@ feishu:
 @app.command()
 def auto_connect_wifi(config_file: Path):
     """自动连接Wi-Fi"""
-    from network_manger.auto_connect_wifi import AutoConfigWifi, WifiConfig
+    from network_manager.auto_connect_wifi import AutoConfigWifi, WifiConfig
 
     config_dict = yaml.safe_load(config_file.read_text(encoding="utf8"))
     logger.info("Loaded Config File Success.")
 
-    config = AutoConfigWifi([WifiConfig(**wifi) for wifi in config_dict["wifi"]])
+    config = AutoConfigWifi([WifiConfig(**{k: str(v) for k,v in wifi.items()}) for wifi in config_dict["wifi"]])
     status = config.connect()
     logger.info("Connect Wi-Fi: %s", status)
 
     from send_ip_to_feishu import send_ip
 
     return send_ip(**config_dict["feishu"])
+
+
+if __name__ == "__main__":
+    app()

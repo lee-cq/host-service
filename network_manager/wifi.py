@@ -28,15 +28,18 @@ if os.name == "nt":
 
 def _run(cmd: str) -> str:
     """执行命令"""
-    logger.debug(f"执行命令: {cmd}")
-    return subprocess.check_output(
+    logger.debug(f">>> 执行命令: {cmd}")
+    output = subprocess.check_output(
         cmd, shell=True, encoding=getencoding(), stderr=subprocess.STDOUT
     )
+    logger.debug("<<< 返回原文: \n%s<<<", output)
+    return output
 
 
 def line_to_list(line: str) -> List[str]:
     """将一行转换为列表"""
-    return re.split(r"\s{2,}", line)
+    _line = re.split(r"\s{2,}", line.rstrip())
+    return _line
 
 
 def table_to_dict(table: str) -> List[Dict[str, str]]:
@@ -51,10 +54,11 @@ def table_to_dict(table: str) -> List[Dict[str, str]]:
 
         line = line_to_list(line)
         res.append(dict(zip(title, line)))
+    logger.debug(f"转换字典结果: \n>>> %s", '\n>>> '.join(' '.join(f"{k}={v}" for k,v in d.items())for d in res))
     return res
 
 
-class WifiList(BaseModel):
+class WifiInfo(BaseModel):
     in_use: str | None = Field(None, alias="in-use")
     bssid: str
     ssid: str
@@ -66,8 +70,9 @@ class WifiList(BaseModel):
     security: str
 
 
-def list_wifi() -> List[WifiList]:
+def list_wifi() -> List[WifiInfo]:
     """获取Wi-Fi列表"""
+    _run(f"sudo ip link set dev wlan0 up")
     # 1. 扫描Wi-Fi
     _run("nmcli dev wifi rescan")
 
@@ -75,20 +80,20 @@ def list_wifi() -> List[WifiList]:
     res = _run("nmcli dev wifi list")
 
     # 3. 解析Wi-Fi列表
-    return [WifiList(**l) for l in table_to_dict(res)]
+    return [WifiInfo(**l) for l in table_to_dict(res)]
 
 
 class DeviceStatus(BaseModel):
     device: str = "wlan0"
-    type: str = "wifi"
-    status: str
+    dev_type: str = Field("wifi", alias="type")
+    state: str
     connection: str
 
 
 def device_status() -> List[DeviceStatus]:
     """获取Wi-Fi状态"""
-    # 1. 获取Wi-Fi状态
     res = _run("nmcli dev status")
+    
     return [DeviceStatus(**d) for d in table_to_dict(res)]
 
 
@@ -98,11 +103,14 @@ def get_wifi_status() -> DeviceStatus:
             return d
 
 
-def connect_wifi(ssid: str, password: str) -> bool:
+def connect_wifi(ssid: str, password: str=None) -> bool:
     """连接Wi-Fi"""
     # 1. 连接Wi-Fi
     try:
-        _run(f"nmcli dev wifi connect {ssid} password {password}")
+        cmd = f"nmcli dev wifi connect {ssid} "
+        if password:
+            cmd +=  f"password {password}"
+        _run(cmd)
     except subprocess.CalledProcessError as e:
         logger.error(f"连接Wi-Fi失败: {e}")
         return False
@@ -156,3 +164,10 @@ def update_device_mac(device, mac) -> bool:
 
     logger.info(f"更改设备的MAC地址成功: {device} {mac}")
     return mac in _run(f"ip address show {device}")
+
+
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level="DEBUG")
+
+    list_wifi()
