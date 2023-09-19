@@ -53,7 +53,7 @@ def wait_network(host="feishu.cn"):
 
 
 @app.command()
-def send_message(
+def send_ip(
     hook_id: str = "9e40f223-0199-438a-a620-cf01b443dabc",
     keyword: str = None,
     secret: str = None,
