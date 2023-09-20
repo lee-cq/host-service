@@ -13,8 +13,6 @@ import subprocess
 import time
 from typing import AsyncIterable
 
-from httpx import AsyncClient, BasicAuth
-from pydantic import BaseModel, computed_field
 
 from grafana.client_loki import Stream, LokiClient
 from health.ping import a_ping_ttl
@@ -22,57 +20,9 @@ from tools import getencoding
 
 logger = logging.getLogger("host-service.tailscale.connect_status")
 
-tz = datetime.timezone(datetime.timedelta(hours=8))
-
 
 class NotInstallError(Exception):
     """未安装tailscale"""
-
-
-class Device(BaseModel):
-    """https://github.com/tailscale/tailscale/blob/main/api.md#attributes"""
-
-    id: str  # 设备的旧标识符, 可以在{deviceid}的任何地方提供此值, 请注意，尽管“ ID”仍被接受，但“ NodeId”是首选。
-    nodeId: str  # 设备的新标识符, 可以在{deviceid}的任何地方提供此值.
-    user: str  # 设备的所有者的用户名.
-    updateAvailable: bool  # updateAvailable (boolean)如果Tailscale客户端版本升级可用，则为true。对于外部设备，此值为空。
-    os: str  # OS(字符串)是设备正在运行的操作系统。
-    authorized: bool  # authorized (boolean)如果该设备已被授权加入尾网，则true；否则false。
-    hostname: str  # 主机名(字符串)是管理控制台中机器的名称
-    name: str  # name (string)是设备的FQDN名称。
-    addresses: list[str]  # addresses (array of strings)是设备的IP地址列表。
-    created: datetime.datetime  # 创建（字符串）是将设备添加到尾网上的日期；对于外部设备来说，这是空的。 "2022-12-01T05:23:30Z"
-    lastSeen: datetime.datetime  # lastSeen (string)是设备最后一次在Tailscale网络上看到的日期。 "2022-12-01T05:23:30Z"
-    expires: datetime.datetime  # expires (string)是设备的密钥过期日期。
-
-    @computed_field()
-    def ipv4(self) -> str:
-        return [i for i in self.addresses if "." in i][0]
-
-
-class AClient(AsyncClient):
-    """Tailscale API Client"""
-
-    def __init__(self, tsnet, api_key, *args, **kwargs):
-        super().__init__(*args, base_url="https://api.tailscale.com/api/v2", **kwargs)
-
-        self.headers.update({"Content-Type": "application/json"})
-        self.auth = BasicAuth(api_key, "")
-        self.tsnet = tsnet
-
-    async def get_devices(self) -> list[Device]:
-        """获取设备列表"""
-        resp = await self.get(f"tailnet/{self.tsnet}/devices")
-        if resp.status_code == 200:
-            return [Device(**i) for i in resp.json()["devices"]]
-        logger.warning("Tailscale API 返回了错误[%d] %s", resp.status_code, resp.text)
-        return []
-
-    async def test_get_devices(self):
-        """获取设备列表"""
-        devices = await self.get_devices()
-        for d in devices:
-            print(d)
 
 
 def self_tailscale_ip() -> str:
@@ -93,44 +43,42 @@ class Tailscale:
 
     EXPIRATION_CONNECT = datetime.timedelta(minutes=120)
 
-    def __init__(self, tsnet, api_key):
-        self.client = AClient(tsnet, api_key)
-        self.self_ip = self_tailscale_ip()
-        self.name_prefix = f"tailscale_{tsnet}"
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs  # 为了兼容老版本的参数接入(新版本不需要任何参数，CLI完成了认证)
+        self.self_ip = None
+        self.hostname = None
+        self.name_prefix = f"tailscale_"
         logger.info("tailscale self IP: %s", self.self_ip)
 
         self.queue = asyncio.Queue()
-        # self.lock = asyncio.Lock()
+        self.active_nodes: dict[str, str] = {}  # ip: hostname
 
-        self.other_nodes: list = []
-        self.ip_hostname = {}
-        # asyncio.create_task(
-        #     self.update_other_nodes(), name=f"{self.name_prefix}_nodes_first"
-        # )
-
-    async def update_other_nodes(self):
+    async def update_ts_status(self):
+        """更新Tailscale的状态"""
         try:
-            ts_nodes = await self.client.get_devices()
-            self.ip_hostname = {d.ipv4: d.hostname for d in ts_nodes}
-            other_nodes = []
-            for d in ts_nodes:
-                if d.ipv4 == self.self_ip:
-                    logger.debug("self IP %s, continued .", d.ipv4)
-                    continue
-                if datetime.datetime.now(tz) - d.lastSeen > self.EXPIRATION_CONNECT:
-                    logger.debug(
-                        "不活跃节点 %s lastSeen=%s, continued .",
-                        d.name,
-                        d.lastSeen.astimezone(tz).strftime("%Y-%m-%d %H:%M:%S"),
-                    )
-                    continue
-                other_nodes.append(d)
-            self.other_nodes = other_nodes
-            logger.debug(
-                "最新Tailscale节点信息, %s : %s", self.client.tsnet, self.other_nodes
+            proc = await asyncio.create_subprocess_exec(
+                "tailscale",
+                "status",
+                "--json",
+                "--active",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+            stdout, stderr = await proc.communicate()
+            ts_status = json.loads(stdout.decode(getencoding()))
+            ts_status["type"] = "tailscale_status"
+            await self.queue.put((time.time_ns(), ts_status))
+            logger.debug("Push Tailscale状态. %s", ts_status)
+
+            self.self_ip = ts_status["Self"]["TailscaleIPs"][0]
+            self.hostname = ts_status["Self"]["HostName"]
+            self.active_nodes = {
+                peer["TailscaleIPs"][0]: peer["HostName"]
+                for peer in ts_status["Peer"].values()
+            }
+
         except Exception as _e:
-            logger.warning("更新节点信息是遇见错误： %s", _e, exc_info=True)
+            logger.error("tailscale status 执行失败失败: %s, 5秒后重试", _e, exc_info=True)
 
     async def netcheck(self):
         """网络检查"""
@@ -168,10 +116,10 @@ class Tailscale:
 
     async def create_pings(self):
         """上报当前节点与其他节点的连接状态"""
-        for node in self.other_nodes:
-            name = f"{self.name_prefix}_ping_{node.ipv4}"
+        for node in self.active_nodes.values():
+            name = f"{self.name_prefix}_ping_{node}"
             if name not in [t.get_name() for t in asyncio.all_tasks()]:
-                asyncio.create_task(self.ping(node.ipv4), name=name)
+                asyncio.create_task(self.ping(node), name=name)
                 logger.debug("创建一个ping任务: %s", name)
             await asyncio.sleep(0.1)
 
@@ -185,10 +133,10 @@ class Tailscale:
                 time_ns, data = await self.queue.get()
                 stream = dict(
                     type=data["type"],
-                    source=self.ip_hostname.get(self.self_ip),
+                    source=self.hostname,
                 )
                 if "target" in data:
-                    stream.update(target=self.ip_hostname.get(data["target"]))
+                    stream.update(target=self.active_nodes.get(data["target"]))
 
                 value = json.dumps(data["ttl"]) if "ttl" in data else json.dumps(data)
                 logger.debug("tailscale to_loki stream=%s, data=%s", stream, value)
@@ -202,13 +150,13 @@ class Tailscale:
         async def _run():
             while True:
                 asyncio.create_task(
-                    self.update_other_nodes(), name=f"{self.name_prefix}_update_nodes"
+                    self.update_ts_status(), name=f"{self.name_prefix}_update_status"
                 )
                 asyncio.create_task(
                     self.netcheck(), name=f"{self.name_prefix}_netcheck"
                 )
                 n = 5
-                while not self.other_nodes and n:
+                while not self.active_nodes and n:
                     n -= 1
                     await asyncio.sleep(1)
                 asyncio.create_task(
