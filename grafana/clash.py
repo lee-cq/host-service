@@ -14,7 +14,7 @@ from httpx_ws import (
     WebSocketUpgradeError,
 )
 
-from grafana.client_loki import ALokiClient, Stream
+from grafana.client_loki import LokiClient, Stream
 
 logger = logging.getLogger("host-service.grafana.clash")
 
@@ -189,13 +189,13 @@ class AClash:
             for k, v in streams.items()
         ]
 
-    async def push(self, loki_client: ALokiClient):
+    async def push(self, loki_client: LokiClient):
         while True:
             await asyncio.sleep(5)
             logger.debug("Queue size: %d", self.queue.qsize())
             streams = await self.create_streams()
             if streams:
-                asyncio.create_task(loki_client.push(streams))
+                asyncio.create_task(loki_client.a_push(streams))
 
             # Exit when input task down.
             for task in asyncio.all_tasks():
@@ -212,7 +212,7 @@ class AClash:
         await self.ws_connections()
         logger.info("Started all ws ...")
 
-    async def run_with_loki(self, loki_client: ALokiClient):
+    async def run_with_loki(self, loki_client: LokiClient):
         await self.run()
         await self.push(loki_client)
 

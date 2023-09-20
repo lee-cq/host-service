@@ -9,15 +9,13 @@
 
 """
 import asyncio
-import os
 import logging
 import socket
-from pathlib import Path
 
 import _base
 import typer
 
-from grafana.client_loki import ALokiClient
+from grafana.client_loki import LokiClient
 from grafana.tailscale import Tailscale
 
 app = typer.Typer()
@@ -40,7 +38,7 @@ def main(
     loki_user_id: str = None,
     loki_api_key: str = None,
 ):
-    loki_client = ALokiClient(
+    loki_client = LokiClient(
         host=loki_host,
         user_id=loki_user_id,
         api_key=loki_api_key,

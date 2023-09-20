@@ -16,7 +16,7 @@ from typing import AsyncIterable
 from httpx import AsyncClient, BasicAuth
 from pydantic import BaseModel, computed_field
 
-from grafana.client_loki import Stream, ALokiClient
+from grafana.client_loki import Stream, LokiClient
 from health.ping import a_ping_ttl
 from tools import getencoding
 
@@ -232,11 +232,11 @@ class Tailscale:
                 yield rest
                 rest, _len = [], 0
 
-    async def run_with_loki(self, loki_client: ALokiClient):
+    async def run_with_loki(self, loki_client: LokiClient):
         """使用Loki客户端运行"""
 
         self.run()
         async for s in self.get_all():
             logger.debug("Queue size: %d", self.queue.qsize())
             if s:
-                await loki_client.push(s)
+                await loki_client.a_push(s)

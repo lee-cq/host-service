@@ -2,9 +2,9 @@ import abc
 import asyncio
 import logging
 
-from tools import timestamp_s, human_timedelta, timestamp_ms
+from tools import timestamp_s, human_timedelta
 from .clash import AClash
-from .client_loki import ALokiClient
+from .client_loki import LokiBufferPush
 from .client_loki import Stream
 from .tailscale import Tailscale
 
@@ -16,20 +16,6 @@ class InputBase(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def to_handle(self, queue: asyncio.Queue):
-        pass
-
-
-class OutputBase(metaclass=abc.ABCMeta):
-    __output_type__: str
-
-    def __init__(self):
-        self.queue = asyncio.Queue()
-
-    async def put(self, data):
-        await self.queue.put(data)
-
-    @abc.abstractmethod
-    async def to_output(self):
         pass
 
 
@@ -69,43 +55,24 @@ class InputTailscale(InputBase, Tailscale):
             logger.debug("Tailscale %s -> Handler : %s", self.client.tsnet, s)
 
 
-class OutputLoki(OutputBase, ALokiClient):
+class OutputLoki(LokiBufferPush):
     __output_type__ = "loki"
 
     def __init__(
         self, host, user_id, api_key, verify=True, labels: dict = None, **kwargs
     ):
-        OutputBase.__init__(self)
-        ALokiClient.__init__(
-            self, host, user_id, api_key, verify=verify, labels=labels, **kwargs
+        LokiBufferPush.__init__(
+            self,
+            40,
+            host,
+            user_id,
+            api_key,
+            flush_timeout=5,
+            verify=verify,
+            labels=labels,
+            **kwargs,
         )
         self.total_push = 0
-
-    async def get_all(self, lens=40) -> list[Stream]:
-        """获取所有的ping信息"""
-        if lens <= 40:
-            await asyncio.sleep(5)
-
-        lens = lens if lens <= self.queue.qsize() else self.queue.qsize()
-        return [await self.queue.get() for _ in range(lens)]
-
-    async def _try_push(self, data):
-        asyncio.current_task().set_name(f"loki.try_push.{timestamp_ms()}")
-        try:
-            self.total_push += await self.push(data)
-        except Exception as e:
-            logger.warning("push to loki has a Error, %s", e, exc_info=True)
-            [await self.queue.put(d) for d in data]
-
-    async def to_output(self):
-        logger.info("开始向Loki推送数据 ...")
-        while True:
-            await asyncio.sleep(0.1)
-            data = await self.get_all()
-            if data:
-                asyncio.create_task(
-                    self._try_push(data), name=f"push_to_loki_{timestamp_s()}"
-                )
 
 
 class Handler:
@@ -119,7 +86,7 @@ class Handler:
 
     def __init__(self):
         self.inputs = []
-        self.outputs: list[OutputBase] = []
+        self.outputs: list[OutputLoki] = []
         self.started_task = {}
 
         self.total_stream = 0
@@ -155,14 +122,6 @@ class Handler:
                 name=f"input_{i.__input_type__}_{i.__hash__()}",
             )
             logger.info(f"创建输入 task %s", i.__input_type__)
-
-        for o in self.outputs:
-            o: OutputBase
-            asyncio.create_task(
-                o.to_output(),
-                name=f"output_{o.__output_type__}_{o.__hash__()}",
-            )
-            logger.info(f"创建输入 task %s", o.__output_type__)
 
         asyncio.create_task(self.push_to_output())
         logger.info("创建数据分发task成功 。")

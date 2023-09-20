@@ -9,7 +9,7 @@ import _base
 import typer
 import pydantic_settings
 
-from grafana.client_loki import ALokiClient
+from grafana.client_loki import LokiClient
 from grafana.clash import AClash
 
 _base.logging_configurator(
@@ -58,7 +58,7 @@ def main(
         os.environ["loki_api_key"] = loki_api_key
 
     s = Settings()
-    loki_client = ALokiClient(
+    loki_client = LokiClient(
         host=s.loki_host,
         user_id=s.loki_user_id,
         api_key=s.loki_api_key,
