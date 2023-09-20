@@ -116,7 +116,7 @@ class Tailscale:
 
     async def create_pings(self):
         """上报当前节点与其他节点的连接状态"""
-        for node in self.active_nodes.values():
+        for node in self.active_nodes.keys():
             name = f"{self.name_prefix}_ping_{node}"
             if name not in [t.get_name() for t in asyncio.all_tasks()]:
                 asyncio.create_task(self.ping(node), name=name)
