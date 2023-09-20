@@ -5,16 +5,16 @@ set -e
 cd "$(dirname "$0")" || exit
 
 # =================  环境初始化 ==========================
-_py="$(which python3.11)"
-PYTHON=${PYTHON_EXE:-${_py}}
-if [ "${PYTHON}x" == "x" ]; then
-  echo "目前需要安装python3.11或者如果不在PATH中，使用 PYTHON_EXE 环境变量指定. " >&2
-  exit 1
-fi
-
-echo "Base python: ${PYTHON}"
 
 if [ ! -d venv ]; then
+  _py="$(which python3.11)"
+  PYTHON=${PYTHON_EXE:-${_py}}
+  if [ "${PYTHON}x" == "x" ]; then
+    echo "目前需要安装python3.11或者如果不在PATH中，使用 PYTHON_EXE 环境变量指定. " >&2
+    exit 1
+  fi
+
+  echo "Base python: ${PYTHON}"
   echo "创建虚拟环境 ..."
   $PYTHON -m venv venv
   rm -f .requirements-installed
