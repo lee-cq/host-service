@@ -6,12 +6,16 @@ import sys
 import logging
 import logging.config
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 logger = logging.getLogger("host-service.bin._base")
 
 WORKDIR = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(WORKDIR))
 os.chdir(WORKDIR)
+
+load_dotenv()
 
 # 创建日志目录
 LOG_DIR = WORKDIR.joinpath("logs")
@@ -47,7 +51,7 @@ def logging_configurator(
         "disable_existing_loggers": False,
         "formatters": {
             "simple": {"format": "%(asctime)s %(name)s %(levelname)s - %(message)s"},
-            "systemd": {"format":"%(name)s %(levelname)s - %(message)s"},
+            "systemd": {"format": "%(name)s %(levelname)s - %(message)s"},
             "error": {
                 "format": (
                     "TIME      = %(asctime)s \n"
@@ -68,25 +72,42 @@ def logging_configurator(
                 "level": console_level,
             },
             "file": {
-                "class": "logging.FileHandler",
+                "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "simple",
+                "level": file_level,
                 "filename": f"logs/{name}.log",
                 "mode": "a+",
-                "level": file_level,
+                "maxBytes": 50 * 1024**2,
+                "backupCount": 5,
             },
             "file_warning": {
-                "class": "logging.FileHandler",
+                "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "error",
+                "level": "WARNING",
                 "filename": f"logs/{name}-error.log",
                 "mode": "a+",
-                "level": "WARNING",
+                "maxBytes": 50 * 1024**2,
+                "backupCount": 5,
             },
-            "root": {
-                "class": "logging.FileHandler",
+            "root_handler": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "level": "DEBUG",
                 "formatter": "simple",
                 "filename": "logs/root.log",
                 "mode": "a+",
+                "maxBytes": 50 * 1024**2,
+                "backupCount": 5,
+            },
+            "loki": {
+                "class": "tools.logging_handle.LokiHandler",
+                "formatter": "simple",
                 "level": "DEBUG",
+                "flush_level": "WARNING",
+                "capacity": 50,
+                "host": os.getenv("LOKI_HOST"),
+                "user_id": os.getenv("LOKI_USER_ID"),
+                "api_key": os.getenv("LOKI_API_KEY"),
+                "verify": False,
             },
         },
         "loggers": {
@@ -96,7 +117,7 @@ def logging_configurator(
             }
         },
         "root": {
-            "handlers": ["root", "file_warning"],
+            "handlers": ["root_handler", "file_warning", "loki"],
             "level": "DEBUG",
         },
     }
