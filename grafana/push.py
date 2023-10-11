@@ -52,7 +52,7 @@ class InputTailscale(InputBase, Tailscale):
         async for s in self.to_loki():
             s: Stream
             await queue.put(s)
-            logger.debug("Tailscale %s -> Handler : %s", self.client.tsnet, s)
+            logger.debug("Tailscale -> Handler : %s", s)
 
 
 class OutputLoki(LokiBufferPush):
@@ -115,13 +115,6 @@ class Handler:
 
     async def start(self):
         """启动"""
-        for i in self.inputs:
-            i: InputBase
-            asyncio.create_task(
-                i.to_handle(self.queue),
-                name=f"input_{i.__input_type__}_{i.__hash__()}",
-            )
-            logger.info(f"创建输入 task %s", i.__input_type__)
 
         asyncio.create_task(self.push_to_output())
         logger.info("创建数据分发task成功 。")
@@ -130,6 +123,17 @@ class Handler:
         logger.info("启动看门狗")
         start_time, _stream = timestamp_s(), 0
         while True:
+            for i in self.inputs:
+                i: InputBase
+                name = f"input_{i.__input_type__}_{i.__hash__()}"
+                if name in self.task_names:
+                    continue
+                asyncio.create_task(
+                    i.to_handle(self.queue),
+                    name=name,
+                )
+                logger.info(f"创建输入 task %s", i.__input_type__)
+
             await asyncio.sleep(60)
             logger.info(
                 "持续运行时间: %s, 转发数据: %d, 最近一分钟转发数据: %d, 注册的队列大小: %s",

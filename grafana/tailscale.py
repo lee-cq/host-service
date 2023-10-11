@@ -127,7 +127,7 @@ class Tailscale:
         """转换为loki格式"""
         logger.info("开始将Tailscale数据转换为Loki格式 ...")
         while True:
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.001)
             logger.debug("tailscale to_loki queue size: %d", self.queue.qsize())
             try:
                 time_ns, data = await self.queue.get()

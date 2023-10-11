@@ -84,6 +84,7 @@ if __name__ == "__main__":
     dotenv.load_dotenv()
     handler = LokiHandler(
         level=logging.DEBUG,
+        flush_level="WARNING",
         capacity=10,
         host=os.getenv("LOKI_HOST"),
         user_id=os.getenv("LOKI_USER_ID"),
