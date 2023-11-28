@@ -45,6 +45,7 @@ class AutoConfigWifi:
         for wc in self.configs:
             wc: WifiConfig
             if wc.ssid in wifi_lists:
+                logger.info("返回使用的ID：\nwc:: %s\nwifi_lists[wc.ssid]:: %s", wc, wifi_lists[wc.ssid])
                 return wc, wifi_lists[wc.ssid]
         
         logger.warning(
@@ -69,7 +70,8 @@ class AutoConfigWifi:
             if update_device_mac("wlan0", self.used_config.mac):
                 logger.info("已经更新MAC地址。")
         
-        return connect_wifi(self.configs[0].ssid, self.configs[0].password)
+        logger.info("连接到Wi-Fi： ssid=%s, password=%s", self.used_config.ssid, self.used_config.password)
+        return connect_wifi(self.used_config.ssid, self.used_config.password)
 
     def run(self):
         return self.connect()
