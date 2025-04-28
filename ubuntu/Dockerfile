@@ -13,7 +13,7 @@ RUN apt-get -o Acquire::https::Verify-Peer=false update --yes \
     && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && mkdir -p /run/sshd
 
-COPY --chmod=644 /etc/* /etc
+COPY --chmod=640 etc/supervisor /etc/supervisor
 COPY --chmod=750 init.sh /
 
 CMD  ["/init.sh"]
